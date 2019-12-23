@@ -1,6 +1,10 @@
 import random
 
+# Random environment each time
+# Neural network used
+
 flatten = lambda l: [item for sublist in l for item in sublist]
+maxSteps = 40
 
 
 class Game:
@@ -108,14 +112,15 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        value = 6
-        r = 0
+        value = 15
+
+
         if self.counter < value:
-            r = 3 * self.counter/value
+            r = 10 * self.counter/value
         elif self.counter > value:
             r = -3 * self.counter/value
         else:
-            r = 25
+            r = 10 * self.counter/value
 
         # print(self.counter)
         # print(r)
@@ -127,15 +132,15 @@ class Game:
         #     return self._get_state(), -10 + r, True, None
         if self.end == (new_x, new_y):
             self.position = new_x, new_y
-            return self._get_state(), 10 + r, True, self.ACTIONS
+            return self._get_state(), r , True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
-            return self._get_state(), 0 + r, False, self.ACTIONS
-        elif self.counter > 200:
+            return self._get_state(), r , False, self.ACTIONS
+        elif self.counter > maxSteps:
             self.position = new_x, new_y
-            return self._get_state(), -10 + r, True, self.ACTIONS
+            return self._get_state(), r , True, self.ACTIONS
         else:
             self.position = new_x, new_y
-            return self._get_state(), 0 + r, False, self.ACTIONS
+            return self._get_state(), r , False, self.ACTIONS
 
     def print(self):
         str = ""
@@ -297,7 +302,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             if done:
                 scores.append(score)
                 epsilons.append(trainer.epsilon)
-            if steps > 200:
+            if steps > maxSteps:
                 break
         if e % 200 == 0:
             print("episode: {}/{}, moves: {}, score: {}, epsilon: {}, loss: {}"
@@ -306,10 +311,11 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             trainer.save(id='iteration-%s' % e)
     return scores, losses, epsilons
 
-trainer = Trainer(learning_rate=0.001, epsilon_decay=0.999995)
+trainer = Trainer(learning_rate=0.001, epsilon_decay=0.999999)
 #0.999995
 
-scores, losses, epsilons = train(35000, trainer, 0, True, snapshot=2500)
+scores, losses, epsilons = train(60000, trainer, 0, True, snapshot=2500)
+#35000
 
 import matplotlib.pyplot as plt
 sc = smooth(scores, width=500)
