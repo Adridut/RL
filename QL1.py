@@ -1,7 +1,12 @@
-# Same envirnment each time
+# Same environment each time
 # Q-Learning with table
 
 import random
+from math import sqrt
+
+maxSteps = 50
+length = 8
+width = 8
 
 
 class Game:
@@ -103,6 +108,17 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
+        value = 20
+        r = 0
+
+        if self.counter < value:
+            r = -(value/(self.counter + 1))
+        elif self.counter > value:
+            r = -(self.counter/value)
+
+
+
+
         # if self.block == (new_x, new_y):
         #     return self._get_state(), -1, False, self.ACTIONS
         # elif self.hole == (new_x, new_y):
@@ -110,15 +126,15 @@ class Game:
         #     return self._get_state(), -10, True, None
         if self.end == (new_x, new_y):
             self.position = new_x, new_y
-            return self._get_state(), 10, True, self.ACTIONS
+            return self._get_state(), r, True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
-            return self._get_state(), -1, False, self.ACTIONS
-        elif self.counter > 190:
+            return self._get_state(), 0, False, self.ACTIONS
+        elif self.counter > maxSteps:
             self.position = new_x, new_y
-            return self._get_state(), -10, True, self.ACTIONS
+            return self._get_state(), r, True, self.ACTIONS
         else:
             self.position = new_x, new_y
-            return self._get_state(), -1, False, self.ACTIONS
+            return self._get_state(), r, False, self.ACTIONS
 
     def print(self):
         str = ""
@@ -140,7 +156,7 @@ class Game:
 ## q learning with table
 import numpy as np
 
-states_n = 16
+states_n = width * length
 actions_n = 4
 Q = np.zeros([states_n, actions_n])
 
@@ -151,7 +167,7 @@ num_episodes = 1000
 cumul_reward_list = []
 actions_list = []
 states_list = []
-game = Game(4, 4, 0) # 0 chance to go left or right instead of asked direction
+game = Game(length, width, 0) # 0 chance to go left or right instead of asked direction
 for i in range(num_episodes):
     actions = []
     s = game.reset()
@@ -180,9 +196,9 @@ game.reset()
 game.print()
 
 import matplotlib.pyplot as plt
-plt.plot(cumul_reward_list[:100])
+plt.plot(cumul_reward_list[:num_episodes])
 plt.ylabel('Cumulative reward')
-plt.xlabel('Étape')
+plt.xlabel('Episodes')
 plt.show()
 
 #t = Trainer(filepath="model-1496937952")
@@ -210,4 +226,5 @@ while not d:
     print("reward : ", r)
     print("score : ", score)
     print("moves : ", moves)
+    print(Game.ACTION_NAMES[a])
     sleep(0.5)
