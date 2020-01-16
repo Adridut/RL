@@ -7,6 +7,7 @@ from math import sqrt
 maxSteps = 50
 length = 8
 width = 8
+exitNumber = 2
 
 
 class Game:
@@ -49,13 +50,22 @@ class Game:
         # cases.remove(hole)
         start = random.choice(cases)
         cases.remove(start)
-        end = random.choice(cases)
-        cases.remove(end)
+        end = []
+        i = 0
+        while i < exitNumber:
+            end.append(list(random.choice(cases)))
+            end[i] = tuple(end[i])
+            cases.remove(end[i])
+            i += 1
+
+        # end = random.choice(cases)
+        # cases.remove(end)
         # block = random.choice(cases)
         # cases.remove(block)
 
         self.position = start
         self.end = end
+
         # self.hole = hole
         # self.block = block
         self.counter = 0
@@ -118,7 +128,9 @@ class Game:
         # elif self.hole == (new_x, new_y):
         #     self.position = new_x, new_y
         #     return self._get_state(), -10, True, None
-        if self.end == (new_x, new_y):
+
+
+        if (new_x, new_y) in self.end:
             self.position = new_x, new_y
             return self._get_state(), r, True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
@@ -140,7 +152,7 @@ class Game:
                 #     str += "¤"
                 # elif (i, j) == self.hole:
                 #     str += "o"
-                elif (i, j) == self.end:
+                elif (i, j) in self.end:
                     str += "@"
                 else:
                     str += "."
@@ -219,8 +231,8 @@ while not d:
     score += r
     clear_output(wait=True)
     g.print()
-    # print("reward : ", r)
-    # print("score : ", score)
+    print("reward : ", r)
+    print("score : ", score)
     print("moves : ", moves)
     print(Game.ACTION_NAMES[a])
     sleep(0.5)
