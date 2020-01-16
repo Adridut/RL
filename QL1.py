@@ -108,16 +108,10 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        value = 20
-        r = 0
-
-        if self.counter < value:
-            r = -(value/(self.counter + 1))
-        elif self.counter > value:
-            r = -(self.counter/value)
-
-
-
+        if self.counter == maxSteps:
+            r = -40
+        else:
+            r = 1
 
         # if self.block == (new_x, new_y):
         #     return self._get_state(), -1, False, self.ACTIONS
@@ -128,7 +122,7 @@ class Game:
             self.position = new_x, new_y
             return self._get_state(), r, True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
-            return self._get_state(), 0, False, self.ACTIONS
+            return self._get_state(), r, False, self.ACTIONS
         elif self.counter > maxSteps:
             self.position = new_x, new_y
             return self._get_state(), r, True, self.ACTIONS
@@ -153,6 +147,7 @@ class Game:
             str += "\n"
         print(str)
 
+
 ## q learning with table
 import numpy as np
 
@@ -163,11 +158,11 @@ Q = np.zeros([states_n, actions_n])
 # Set learning parameters
 lr = .85
 y = .99
-num_episodes = 1000
+num_episodes = 100
 cumul_reward_list = []
 actions_list = []
 states_list = []
-game = Game(length, width, 0) # 0 chance to go left or right instead of asked direction
+game = Game(length, width, 0)  # 0 chance to go left or right instead of asked direction
 for i in range(num_episodes):
     actions = []
     s = game.reset()
@@ -176,10 +171,10 @@ for i in range(num_episodes):
     d = False
     while True:
         # on choisit une action aléatoire avec une certaine probabilité, qui décroit
-        Q2 = Q[s,:] + np.random.randn(1, actions_n)*(1. / (i +1))
+        Q2 = Q[s, :] + np.random.randn(1, actions_n) * (1. / (i + 1))
         a = np.argmax(Q2)
         s1, reward, d, _ = game.move(a)
-        Q[s, a] = Q[s, a] + lr*(reward + y * np.max(Q[s1,:]) - Q[s, a]) # Fonction de mise à jour de la Q-table
+        Q[s, a] = Q[s, a] + lr * (reward + y * np.max(Q[s1, :]) - Q[s, a])  # Fonction de mise à jour de la Q-table
         cumul_reward += reward
         s = s1
         actions.append(a)
@@ -190,18 +185,19 @@ for i in range(num_episodes):
     actions_list.append(actions)
     cumul_reward_list.append(cumul_reward)
 
-print("Score over time: " +  str(sum(cumul_reward_list[-100:])/100.0))
+print("Score over time: " + str(sum(cumul_reward_list[-100:]) / 100.0))
 
 game.reset()
 game.print()
 
 import matplotlib.pyplot as plt
+
 plt.plot(cumul_reward_list[:num_episodes])
 plt.ylabel('Cumulative reward')
 plt.xlabel('Episodes')
 plt.show()
 
-#t = Trainer(filepath="model-1496937952")
+# t = Trainer(filepath="model-1496937952")
 
 from time import sleep
 from IPython.display import clear_output
@@ -218,13 +214,13 @@ moves = 0
 while not d:
     moves += 1
     g._get_state()
-    a = np.argmax(Q[s,:])
-    s, r, d, _= g.move(a)
+    a = np.argmax(Q[s, :])
+    s, r, d, _ = g.move(a)
     score += r
     clear_output(wait=True)
     g.print()
-    print("reward : ", r)
-    print("score : ", score)
+    # print("reward : ", r)
+    # print("score : ", score)
     print("moves : ", moves)
     print(Game.ACTION_NAMES[a])
     sleep(0.5)
