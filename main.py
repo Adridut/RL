@@ -4,7 +4,12 @@ import random
 # Neural network used
 
 flatten = lambda l: [item for sublist in l for item in sublist]
-maxSteps = 40
+length = 8
+width = 8
+maxSteps = length * width
+exitNumber = 1
+holeNumber = 1
+wallNumber = 1
 
 
 class Game:
@@ -44,19 +49,42 @@ class Game:
 
     def generate_game(self):
         cases = [(x, y) for x in range(self.n) for y in range(self.m)]
+        hole = []
+        i = 0
+        while i < holeNumber:
+            hole.append(list(random.choice(cases)))
+            hole[i] = tuple(hole[i])
+            cases.remove(hole[i])
+            i += 1
         # hole = random.choice(cases)
         # cases.remove(hole)
         start = random.choice(cases)
         cases.remove(start)
-        end = random.choice(cases)
-        cases.remove(end)
+        end = []
+        i = 0
+        while i < exitNumber:
+            end.append(list(random.choice(cases)))
+            end[i] = tuple(end[i])
+            cases.remove(end[i])
+            i += 1
+
+        # end = random.choice(cases)
+        # cases.remove(end)
+        block = []
+        i = 0
+        while i < wallNumber:
+            block.append(list(random.choice(cases)))
+            block[i] = tuple(block[i])
+            cases.remove(block[i])
+            i += 1
         # block = random.choice(cases)
         # cases.remove(block)
 
         self.position = start
         self.end = end
-        # self.hole = hole
-        # self.block = block
+        self.hole = hole
+        self.block = block
+
         self.counter = 0
 
         if not self.alea:
@@ -81,8 +109,8 @@ class Game:
     def _get_state(self):
         x, y = self.position
         if self.alea:
-            return np.reshape([self._get_grille(x, y) for (x, y) in
-                               [self.position, self.end]], (1, 32))
+            return np.reshape([self._get_grille(x, y) for [(x, y)] in
+                               [[self.position], self.end, self.hole, self.block]], (1, width * length * 4))
         # , self.hole, self.block
         return flatten(self._get_grille(x, y))
 
@@ -112,25 +140,23 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        value = 15
+        r = 0
 
-
-        if self.counter < value:
-            r = 10 * self.counter/value
-        elif self.counter > value:
-            r = -3 * self.counter/value
+        if self.counter < maxSteps/2:
+            r = 1
         else:
-            r = 10 * self.counter/value
+            r = -1
+
 
         # print(self.counter)
         # print(r)
 
-        # if self.block == (new_x, new_y):
-        #     return self._get_state(), 0 + r, False, self.ACTIONS
-        # elif self.hole == (new_x, new_y):
-        #     self.position = new_x, new_y
-        #     return self._get_state(), -10 + r, True, None
-        if self.end == (new_x, new_y):
+        if (new_x, new_y) in self.block:
+            return self._get_state(), r, False, self.ACTIONS
+        elif (new_x, new_y) in self.hole:
+            self.position = new_x, new_y
+            return self._get_state(), -30, True, None
+        elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
             return self._get_state(), r , True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
@@ -148,11 +174,11 @@ class Game:
             for j in range(self.m):
                 if (i, j) == self.position:
                     str += "x"
-                # elif (i, j) == self.block:
-                #     str += "¤"
-                # elif (i, j) == self.hole:
-                #     str += "o"
-                elif (i, j) == self.end:
+                elif (i, j) in self.block:
+                    str += "¤"
+                elif (i, j) in self.hole:
+                    str += "o"
+                elif (i, j) in self.end:
                     str += "@"
                 else:
                     str += "."
@@ -176,7 +202,7 @@ from collections import deque
 
 class Trainer:
     def __init__(self, name=None, learning_rate=0.001, epsilon_decay=0.9999, batch_size=30, memory_size=3000):
-        self.state_size = 32
+        self.state_size = width * length * 4
         self.action_size = 4
         self.gamma = 0.9
         self.epsilon = 1.0
@@ -256,7 +282,7 @@ from IPython.core.debugger import set_trace
 
 def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=5000):
     batch_size = 32
-    g = Game(4, 4, wrong_action_p, alea=alea)
+    g = Game(length, width, wrong_action_p, alea=alea)
     counter = 1
     scores = []
     global_counter = 0
@@ -282,7 +308,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
     global_counter = 0
     for e in range(episodes+1):
         state = g.generate_game()
-        state = np.reshape(state, [1, 32])
+        state = np.reshape(state, [1, width * length * 4])
         score = 0
         done = False
         steps = 0
@@ -292,7 +318,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             action = trainer.get_best_action(state)
             trainer.decay_epsilon()
             next_state, reward, done, _ = g.move(action)
-            next_state = np.reshape(next_state, [1, 32])
+            next_state = np.reshape(next_state, [1, width * length * 4])
             score += reward
             trainer.remember(state, action, reward, next_state, done)
             state = next_state
@@ -314,7 +340,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
 trainer = Trainer(learning_rate=0.001, epsilon_decay=0.999999)
 #0.999995
 
-scores, losses, epsilons = train(60000, trainer, 0, True, snapshot=2500)
+scores, losses, epsilons = train(1000, trainer, 0, True, snapshot=2500)
 #35000
 
 import matplotlib.pyplot as plt
@@ -337,7 +363,7 @@ plt.show()
 from IPython import display
 import time
 #0.1
-g = Game(4, 4, 0, alea=True)
+g = Game(length, width, 0, alea=True)
 
 state = g.reset()
 state = g._get_state()
@@ -347,6 +373,7 @@ g.print()
 done = False
 time.sleep(5)
 moves = 0
+s = 0
 while not done:
     moves += 1
     time.sleep(1)
@@ -356,5 +383,7 @@ while not done:
     print(Game.ACTION_NAMES[action])
     next_state, reward, done, _ = g.move(action)
     g.print()
-print(reward)
-print(moves)
+    s += reward
+    print('Reward', reward)
+    print('Score', s)
+    print('Moves', moves)

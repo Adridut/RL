@@ -5,9 +5,12 @@ import random
 
 flatten = lambda l: [item for sublist in l for item in sublist]
 
-maxSteps = 50
 length = 8
 width = 8
+maxSteps = length * width
+exitNumber = 1
+holeNumber = 2
+wallNumber = 3
 
 
 class Game:
@@ -46,19 +49,42 @@ class Game:
 
     def generate_game(self):
         cases = [(x, y) for x in range(self.n) for y in range(self.m)]
+        hole = []
+        i = 0
+        while i < holeNumber:
+            hole.append(list(random.choice(cases)))
+            hole[i] = tuple(hole[i])
+            cases.remove(hole[i])
+            i += 1
         # hole = random.choice(cases)
         # cases.remove(hole)
         start = random.choice(cases)
         cases.remove(start)
-        end = random.choice(cases)
-        cases.remove(end)
+        end = []
+        i = 0
+        while i < exitNumber:
+            end.append(list(random.choice(cases)))
+            end[i] = tuple(end[i])
+            cases.remove(end[i])
+            i += 1
+
+        # end = random.choice(cases)
+        # cases.remove(end)
+        block = []
+        i = 0
+        while i < wallNumber:
+            block.append(list(random.choice(cases)))
+            block[i] = tuple(block[i])
+            cases.remove(block[i])
+            i += 1
         # block = random.choice(cases)
         # cases.remove(block)
 
         self.position = start
         self.end = end
-        # self.hole = hole
-        # self.block = block
+        self.hole = hole
+        self.block = block
+
         self.counter = 0
 
         if not self.alea:
@@ -84,7 +110,7 @@ class Game:
         x, y = self.position
         if self.alea:
             return [self._get_grille(x, y) for (x, y) in
-                    [self.position, self.end]]
+                    [self.position, self.end, self.block, self.hole]]
         return flatten(self._get_grille(x, y))
 
     def move(self, action):
@@ -110,20 +136,21 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        value = 20
+        value = maxSteps/1.5
         r = 0
 
-        if self.counter < value:
-            r = (self.counter/value)
-        elif self.counter > value:
-            r = -(self.counter/value)
 
-        # if self.block == (new_x, new_y):
-        #     return self._get_state(), -1, False, self.ACTIONS
-        # elif self.hole == (new_x, new_y):
-        #     self.position = new_x, new_y
-        #     return self._get_state(), -10, True, None
-        if self.end == (new_x, new_y):
+        if self.counter < value:
+            r = 1
+        elif self.counter > value:
+            r = -5
+
+        if (new_x, new_y) in self.block:
+            return self._get_state(), r, False, self.ACTIONS
+        elif (new_x, new_y) in self.hole:
+            self.position = new_x, new_y
+            return self._get_state(), -30, True, None
+        elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
             return self._get_state(), r, True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
@@ -141,11 +168,11 @@ class Game:
             for j in range(self.m):
                 if (i, j) == self.position:
                     str += "x"
-                # elif (i, j) == self.block:
-                #     str += "¤"
-                # elif (i, j) == self.hole:
-                #     str += "o"
-                elif (i, j) == self.end:
+                elif (i, j) in self.block:
+                    str += "¤"
+                elif (i, j) in self.hole:
+                    str += "o"
+                elif (i, j) in self.end:
                     str += "@"
                 else:
                     str += "."
@@ -224,6 +251,7 @@ import time
 
 def train(episodes, trainer, game):
     scores = []
+    epsilons = []
     losses = [0]
     for e in range(episodes):
         state = game.reset()
@@ -239,10 +267,12 @@ def train(episodes, trainer, game):
             #print(state.index(1), Game.ACTION_NAMES[action], reward, next_state.index(1), "DONE" if done else "")
             state = next_state
             if done:
+                epsilons.append(trainer.epsilon)
                 scores.append(score)
                 break
             if steps > maxSteps:
                 trainer.train(state, action, -10, state, True) # we end the game
+                epsilons.append(trainer.epsilon)
                 scores.append(score)
                 break
         if e % 100 == 0: # print log every 100 episode
@@ -250,15 +280,15 @@ def train(episodes, trainer, game):
                   .format(e, episodes, steps, score))
             print(f"epsilon : {trainer.epsilon}")
     #trainer.save()
-    return scores
+    return scores, epsilons
 
 g = Game(length, width, 0, alea=False)
 g.print()
 g._get_state()
 
-trainer = Trainer(learning_rate=0.01)
-
-score = train(2000, trainer, g)
+trainer = Trainer(learning_rate=0.001)
+#0.01
+score, epsilons = train(2000, trainer, g)
 
 
 import matplotlib.pyplot as plt
@@ -266,11 +296,16 @@ import matplotlib.pyplot as plt
 score = np.array(score)
 score_c = np.convolve(score, np.full((10,), 1/10), mode="same")
 
-plt.plot(score_c)
-plt.title("Score")
-plt.xlabel("Episodes")
-plt.ylabel("score")
-from IPython import display
+fig, ax1 = plt.subplots()
+ax1.plot(score_c)
+ax2 = ax1.twinx()
+ax2.plot(epsilons, color='r')
+ax1.set_ylabel('Score')
+ax2.set_ylabel('Epsilon', color='r')
+ax2.tick_params('y', colors='r')
+plt.title("Score, and Epsilon over training")
+ax1.set_xlabel("Episodes")
+plt.figure()
 plt.show()
 
 
@@ -282,15 +317,18 @@ state = g._get_state()
 done = False
 g.print()
 moves = 0
+s = 0
 while not done:
     moves +=1
     time.sleep(1)
     print(trainer.model.predict(np.array([g._get_state()])))
     action = trainer.get_best_action(g._get_state(), rand=False)
-    print(Game.ACTION_NAMES[action])
     next_state, reward, done, _ = g.move(action)
+    s += reward
     g.print()
     print(moves)
+    print(Game.ACTION_NAMES[action])
+    print(s)
 
 state = flatten(g._get_grille(0, 1))
 # print(state)

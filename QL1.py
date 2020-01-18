@@ -4,10 +4,13 @@
 import random
 from math import sqrt
 
-maxSteps = 50
 length = 8
 width = 8
+maxSteps = length * width
 exitNumber = 2
+holeNumber = 2
+wallNumber = 1
+
 
 
 class Game:
@@ -46,6 +49,13 @@ class Game:
 
     def generate_game(self):
         cases = [(x, y) for x in range(self.n) for y in range(self.m)]
+        hole = []
+        i = 0
+        while i < holeNumber:
+            hole.append(list(random.choice(cases)))
+            hole[i] = tuple(hole[i])
+            cases.remove(hole[i])
+            i += 1
         # hole = random.choice(cases)
         # cases.remove(hole)
         start = random.choice(cases)
@@ -60,14 +70,21 @@ class Game:
 
         # end = random.choice(cases)
         # cases.remove(end)
+        block = []
+        i = 0
+        while i < wallNumber:
+            block.append(list(random.choice(cases)))
+            block[i] = tuple(block[i])
+            cases.remove(block[i])
+            i += 1
         # block = random.choice(cases)
         # cases.remove(block)
 
         self.position = start
         self.end = end
+        self.hole = hole
+        self.block = block
 
-        # self.hole = hole
-        # self.block = block
         self.counter = 0
 
         if not self.alea:
@@ -92,7 +109,7 @@ class Game:
     def _get_state(self):
         if self.alea:
             return [self._get_grille(x, y) for (x, y) in
-                    [self.position, self.end]]
+                    [self.position, self.end, self.block, self.hole]]
         return self._position_to_id(*self.position)
 
     def move(self, action):
@@ -118,19 +135,17 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        if self.counter == maxSteps:
+        if self.counter >= maxSteps:
             r = -40
         else:
             r = 1
 
-        # if self.block == (new_x, new_y):
-        #     return self._get_state(), -1, False, self.ACTIONS
-        # elif self.hole == (new_x, new_y):
-        #     self.position = new_x, new_y
-        #     return self._get_state(), -10, True, None
-
-
-        if (new_x, new_y) in self.end:
+        if (new_x, new_y) in self.block:
+            return self._get_state(), r, False, self.ACTIONS
+        elif (new_x, new_y) in self.hole:
+            self.position = new_x, new_y
+            return self._get_state(), -30, True, None
+        elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
             return self._get_state(), r, True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
@@ -148,10 +163,10 @@ class Game:
             for j in range(self.m):
                 if (i, j) == self.position:
                     str += "x"
-                # elif (i, j) == self.block:
-                #     str += "¤"
-                # elif (i, j) == self.hole:
-                #     str += "o"
+                elif (i, j) in self.block:
+                    str += "¤"
+                elif (i, j) in self.hole:
+                    str += "o"
                 elif (i, j) in self.end:
                     str += "@"
                 else:
@@ -170,7 +185,7 @@ Q = np.zeros([states_n, actions_n])
 # Set learning parameters
 lr = .85
 y = .99
-num_episodes = 100
+num_episodes = 200
 cumul_reward_list = []
 actions_list = []
 states_list = []
