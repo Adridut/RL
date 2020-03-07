@@ -9,8 +9,9 @@ length = 8
 width = 8
 maxSteps = length * width
 exitNumber = 1
-holeNumber = 2
-wallNumber = 3
+holeNumber = 0
+wallNumber = 0
+objective = 15
 
 
 class Game:
@@ -136,20 +137,17 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        value = maxSteps/1.5
-        r = 0
+        value = maxSteps/10
 
-
-        if self.counter < value:
-            r = 1
-        elif self.counter > value:
-            r = -5
+        r = 1
+        if self.counter >= objective:
+            r = -1
 
         if (new_x, new_y) in self.block:
             return self._get_state(), r, False, self.ACTIONS
         elif (new_x, new_y) in self.hole:
             self.position = new_x, new_y
-            return self._get_state(), -30, True, None
+            return self._get_state(), -50, True, None
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
             return self._get_state(), r, True, self.ACTIONS
@@ -192,7 +190,7 @@ from collections import deque
 
 
 class Trainer:
-    def __init__(self, name=None, learning_rate=0.01, epsilon_decay=0.9999):
+    def __init__(self, learning_rate, epsilon_decay):
         self.state_size = length * width
         self.action_size = 4
         self.gamma = 0.9
@@ -200,6 +198,8 @@ class Trainer:
         self.epsilon_min = 0.01
         self.epsilon_decay = epsilon_decay
         self.learning_rate = learning_rate
+
+        name = None
 
         self.name = name
 
@@ -252,6 +252,7 @@ import time
 def train(episodes, trainer, game):
     scores = []
     epsilons = []
+    delta = []
     losses = [0]
     for e in range(episodes):
         state = game.reset()
@@ -269,26 +270,28 @@ def train(episodes, trainer, game):
             if done:
                 epsilons.append(trainer.epsilon)
                 scores.append(score)
+                delta.append(abs(steps - objective))
                 break
             if steps > maxSteps:
                 trainer.train(state, action, -10, state, True) # we end the game
                 epsilons.append(trainer.epsilon)
                 scores.append(score)
+                delta.append(abs(steps - objective))
                 break
         if e % 100 == 0: # print log every 100 episode
-            print("episode: {}/{}, moves: {}, score: {}"
-                  .format(e, episodes, steps, score))
+            print("episode: {}/{}, moves: {}, score: {}, delta: {}"
+                  .format(e, episodes, steps, score, abs(steps - objective)))
             print(f"epsilon : {trainer.epsilon}")
     #trainer.save()
-    return scores, epsilons
+    return scores, epsilons, delta
 
 g = Game(length, width, 0, alea=False)
 g.print()
 g._get_state()
 
-trainer = Trainer(learning_rate=0.001)
-#0.01
-score, epsilons = train(2000, trainer, g)
+trainer = Trainer(learning_rate=0.01, epsilon_decay=0.99996)
+#0.01, 0.9999
+score, epsilons, delta = train(10, trainer, g)
 
 
 import matplotlib.pyplot as plt
@@ -299,12 +302,17 @@ score_c = np.convolve(score, np.full((10,), 1/10), mode="same")
 fig, ax1 = plt.subplots()
 ax1.plot(score_c)
 ax2 = ax1.twinx()
+ax3 = ax1.twinx()
 ax2.plot(epsilons, color='r')
+ax3.plot(delta, color='g')
 ax1.set_ylabel('Score')
 ax2.set_ylabel('Epsilon', color='r')
+ax3.set_ylabel('Delta', color='g')
 ax2.tick_params('y', colors='r')
+ax3.tick_params('y', colors='g')
 plt.title("Score, and Epsilon over training")
 ax1.set_xlabel("Episodes")
+ax3.spines["right"].set_position(("axes", 1.2))
 plt.figure()
 plt.show()
 
@@ -326,9 +334,12 @@ while not done:
     next_state, reward, done, _ = g.move(action)
     s += reward
     g.print()
-    print(moves)
+    print("reward : ", reward)
+    print("score : ", s)
+    print("moves : ", moves)
+    print("delta : ", abs(objective - moves))
     print(Game.ACTION_NAMES[action])
-    print(s)
+
 
 state = flatten(g._get_grille(0, 1))
 # print(state)

@@ -3,6 +3,10 @@ import random
 # Random environment each time
 # Neural network used
 
+#TODO Correct graph/width problem
+#TODO Save result in cvs files
+#TODO Make it work for any numbers of exits, walls and holes
+
 flatten = lambda l: [item for sublist in l for item in sublist]
 length = 8
 width = 8
@@ -10,6 +14,8 @@ maxSteps = length * width
 exitNumber = 1
 holeNumber = 1
 wallNumber = 1
+objective = 15
+
 
 
 class Game:
@@ -111,7 +117,6 @@ class Game:
         if self.alea:
             return np.reshape([self._get_grille(x, y) for [(x, y)] in
                                [[self.position], self.end, self.hole, self.block]], (1, width * length * 4))
-        # , self.hole, self.block
         return flatten(self._get_grille(x, y))
 
     def get_random_action(self):
@@ -142,14 +147,10 @@ class Game:
 
         r = 0
 
-        if self.counter < maxSteps/2:
+        if self.counter < objective:
             r = 1
         else:
             r = -1
-
-
-        # print(self.counter)
-        # print(r)
 
         if (new_x, new_y) in self.block:
             return self._get_state(), r, False, self.ACTIONS
@@ -288,6 +289,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
     global_counter = 0
     losses = [0]
     epsilons = []
+    delta = []
 
     # we start with a sequence to collect information, without learning
     if collecting:
@@ -325,22 +327,24 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             if global_counter % 100 == 0:
                 l = trainer.replay(batch_size)
                 losses.append(l.history['loss'][0])
+                delta.append(abs(steps - objective))
             if done:
                 scores.append(score)
                 epsilons.append(trainer.epsilon)
+                delta.append(abs(steps - objective))
             if steps > maxSteps:
                 break
         if e % 200 == 0:
-            print("episode: {}/{}, moves: {}, score: {}, epsilon: {}, loss: {}"
-                  .format(e, episodes, steps, score, trainer.epsilon, losses[-1]))
+            print("episode: {}/{}, moves: {}, score: {}, epsilon: {}, loss: {}, delta: {}"
+                  .format(e, episodes, steps, score, trainer.epsilon, losses[-1], abs(steps - objective)))
         if e > 0 and e % snapshot == 0:
             trainer.save(id='iteration-%s' % e)
-    return scores, losses, epsilons
+    return scores, losses, epsilons, delta
 
 trainer = Trainer(learning_rate=0.001, epsilon_decay=0.999999)
 #0.999995
 
-scores, losses, epsilons = train(1000, trainer, 0, True, snapshot=2500)
+scores, losses, epsilons, delta = train(1000, trainer, 0, True, snapshot=2500)
 #35000
 
 import matplotlib.pyplot as plt
@@ -351,6 +355,11 @@ fig, ax1 = plt.subplots()
 ax1.plot(sc)
 ax2 = ax1.twinx()
 ax2.plot(epsilons, color='r')
+# ax3 = ax1.twinx()
+# ax3.plot(delta, color='g')
+# ax3.set_ylabel('Delta', color='g')
+# ax3.tick_params('y', colors='g')
+# ax3.spines["right"].set_position(("axes", 1.3))
 ax1.set_ylabel('Score')
 ax2.set_ylabel('Epsilon', color='r')
 ax2.tick_params('y', colors='r')
@@ -387,3 +396,5 @@ while not done:
     print('Reward', reward)
     print('Score', s)
     print('Moves', moves)
+    print("delta : ", abs(objective - moves))
+

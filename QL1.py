@@ -7,9 +7,10 @@ from math import sqrt
 length = 8
 width = 8
 maxSteps = length * width
-exitNumber = 2
-holeNumber = 2
+exitNumber = 1
+holeNumber = 1
 wallNumber = 1
+objective = 15
 
 
 
@@ -135,16 +136,15 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        if self.counter >= maxSteps:
-            r = -40
-        else:
-            r = 1
+        r = 1
+        if self.counter >= objective:
+            r = -1
 
         if (new_x, new_y) in self.block:
             return self._get_state(), r, False, self.ACTIONS
         elif (new_x, new_y) in self.hole:
             self.position = new_x, new_y
-            return self._get_state(), -30, True, None
+            return self._get_state(), -50, True, None
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
             return self._get_state(), r, True, self.ACTIONS
@@ -187,6 +187,7 @@ lr = .85
 y = .99
 num_episodes = 200
 cumul_reward_list = []
+delta = []
 actions_list = []
 states_list = []
 game = Game(length, width, 0)  # 0 chance to go left or right instead of asked direction
@@ -195,6 +196,7 @@ for i in range(num_episodes):
     s = game.reset()
     states = [s]
     cumul_reward = 0
+    moves = 0
     d = False
     while True:
         # on choisit une action aléatoire avec une certaine probabilité, qui décroit
@@ -206,11 +208,13 @@ for i in range(num_episodes):
         s = s1
         actions.append(a)
         states.append(s)
+        moves += 1
         if d == True:
             break
     states_list.append(states)
     actions_list.append(actions)
     cumul_reward_list.append(cumul_reward)
+    delta.append(abs(moves - objective))
 
 print("Score over time: " + str(sum(cumul_reward_list[-100:]) / 100.0))
 
@@ -219,9 +223,16 @@ game.print()
 
 import matplotlib.pyplot as plt
 
-plt.plot(cumul_reward_list[:num_episodes])
-plt.ylabel('Cumulative reward')
-plt.xlabel('Episodes')
+fig, ax1 = plt.subplots()
+ax1.plot(cumul_reward_list[:num_episodes])
+ax2 = ax1.twinx()
+ax2.plot(delta, color='g')
+ax1.set_ylabel('Score')
+ax2.set_ylabel('Delta', color='g')
+ax2.tick_params('y', colors='g')
+plt.title("Score, and Delta over training")
+ax1.set_xlabel("Episodes")
+plt.figure()
 plt.show()
 
 # t = Trainer(filepath="model-1496937952")
@@ -249,5 +260,6 @@ while not d:
     print("reward : ", r)
     print("score : ", score)
     print("moves : ", moves)
+    print("delta : ", abs(objective - moves))
     print(Game.ACTION_NAMES[a])
     sleep(0.5)
