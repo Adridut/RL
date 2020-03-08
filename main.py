@@ -6,6 +6,7 @@ import random
 #TODO Correct graph/width problem
 #TODO Save result in cvs files
 #TODO Make it work for any numbers of exits, walls and holes
+#TODO Make epsilon proportional to number of episodes
 
 flatten = lambda l: [item for sublist in l for item in sublist]
 length = 8
@@ -15,6 +16,7 @@ exitNumber = 1
 holeNumber = 1
 wallNumber = 1
 objective = 15
+numberOfEpisodes = 35000
 
 
 
@@ -344,11 +346,11 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
 trainer = Trainer(learning_rate=0.001, epsilon_decay=0.999999)
 #0.999995
 
-scores, losses, epsilons, delta = train(1000, trainer, 0, True, snapshot=2500)
+scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
 #35000
 
 import matplotlib.pyplot as plt
-sc = smooth(scores, width=500)
+sc = smooth(scores, width=round(numberOfEpisodes/70) + 1)
 
 
 fig, ax1 = plt.subplots()
