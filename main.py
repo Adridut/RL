@@ -3,7 +3,6 @@ import random
 # Random environment each time
 # Neural network used
 
-#TODO Correct graph/width problem
 #TODO Save result in cvs files
 #TODO Make it work for any numbers of exits, walls and holes
 #TODO Make epsilon proportional to number of episodes
@@ -13,10 +12,10 @@ length = 8
 width = 8
 maxSteps = length * width
 exitNumber = 1
-holeNumber = 1
-wallNumber = 1
+holeNumber = 0
+wallNumber = 0
 objective = 15
-numberOfEpisodes = 35000
+numberOfEpisodes = 10
 
 
 
@@ -118,7 +117,7 @@ class Game:
         x, y = self.position
         if self.alea:
             return np.reshape([self._get_grille(x, y) for [(x, y)] in
-                               [[self.position], self.end, self.hole, self.block]], (1, width * length * 4))
+                               [[self.position], self.end]], (1, width * length * 2))
         return flatten(self._get_grille(x, y))
 
     def get_random_action(self):
@@ -149,8 +148,8 @@ class Game:
 
         r = 0
 
-        if self.counter < objective:
-            r = 1
+        if self.counter <= objective:
+            r = -1
         else:
             r = -1
 
@@ -161,7 +160,7 @@ class Game:
             return self._get_state(), -30, True, None
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), r , True, self.ACTIONS
+            return self._get_state(), 10 , True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
             return self._get_state(), r , False, self.ACTIONS
         elif self.counter > maxSteps:
@@ -205,7 +204,7 @@ from collections import deque
 
 class Trainer:
     def __init__(self, name=None, learning_rate=0.001, epsilon_decay=0.9999, batch_size=30, memory_size=3000):
-        self.state_size = width * length * 4
+        self.state_size = width * length * 2
         self.action_size = 4
         self.gamma = 0.9
         self.epsilon = 1.0
@@ -312,7 +311,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
     global_counter = 0
     for e in range(episodes+1):
         state = g.generate_game()
-        state = np.reshape(state, [1, width * length * 4])
+        state = np.reshape(state, [1, width * length * 2])
         score = 0
         done = False
         steps = 0
@@ -322,7 +321,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             action = trainer.get_best_action(state)
             trainer.decay_epsilon()
             next_state, reward, done, _ = g.move(action)
-            next_state = np.reshape(next_state, [1, width * length * 4])
+            next_state = np.reshape(next_state, [1, width * length * 2])
             score += reward
             trainer.remember(state, action, reward, next_state, done)
             state = next_state
