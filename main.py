@@ -15,7 +15,7 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 15
-numberOfEpisodes = 10
+numberOfEpisodes = 1000
 
 
 
@@ -328,12 +328,15 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             if global_counter % 100 == 0:
                 l = trainer.replay(batch_size)
                 losses.append(l.history['loss'][0])
-                delta.append(abs(steps - objective))
             if done:
-                scores.append(score)
                 epsilons.append(trainer.epsilon)
+                scores.append(score)
                 delta.append(abs(steps - objective))
+                break
             if steps > maxSteps:
+                epsilons.append(trainer.epsilon)
+                scores.append(score)
+                delta.append(abs(steps - objective))
                 break
         if e % 200 == 0:
             print("episode: {}/{}, moves: {}, score: {}, epsilon: {}, loss: {}, delta: {}"
@@ -342,7 +345,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             trainer.save(id='iteration-%s' % e)
     return scores, losses, epsilons, delta
 
-trainer = Trainer(learning_rate=0.001, epsilon_decay=0.999999)
+trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.9995))
 #0.999995
 
 scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
@@ -350,6 +353,10 @@ scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snap
 
 import matplotlib.pyplot as plt
 sc = smooth(scores, width=round(numberOfEpisodes/70) + 1)
+
+# score = np.array(scores)
+# score_c = np.convolve(score, np.full((10,), 1/10), mode="same")
+
 
 
 fig, ax1 = plt.subplots()
