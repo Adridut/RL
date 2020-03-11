@@ -12,6 +12,7 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 15
+numberOfEpisodes = 1000
 
 
 class Game:
@@ -139,7 +140,7 @@ class Game:
 
         value = maxSteps/10
 
-        r = 1
+        r = -1
         if self.counter >= objective:
             r = -1
 
@@ -150,7 +151,7 @@ class Game:
             return self._get_state(), -50, True, None
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), r, True, self.ACTIONS
+            return self._get_state(), 10, True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
             return self._get_state(), r, False, self.ACTIONS
         elif self.counter > maxSteps:
@@ -289,9 +290,24 @@ g = Game(length, width, 0, alea=False)
 g.print()
 g._get_state()
 
-trainer = Trainer(learning_rate=0.01, epsilon_decay=0.99996)
+import pandas as pd
+from datetime import date, datetime
+
+def saveResult(score, numberOfEpisodes, delta, objective, moves):
+    day = date.today().strftime("%d%m%Y")
+    time = datetime.now().strftime("%H%M%S")
+    file_name = 'SNN' + day + time + '.cvs'
+    result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
+              'delta': [delta], 'objective': [objective], 'moves': [moves],
+              'day': [day], 'time': [time]}
+    df = pd.DataFrame(data=result)
+    print(df)
+    df.to_csv(file_name, encoding='utf-8', index=False)
+
+trainer = Trainer(learning_rate=0.01, epsilon_decay=0.99995)
 #0.01, 0.9999
-score, epsilons, delta = train(10, trainer, g)
+score, epsilons, delta = train(numberOfEpisodes, trainer, g)
+#2000
 
 
 import matplotlib.pyplot as plt
@@ -302,17 +318,17 @@ score_c = np.convolve(score, np.full((10,), 1/10), mode="same")
 fig, ax1 = plt.subplots()
 ax1.plot(score_c)
 ax2 = ax1.twinx()
-ax3 = ax1.twinx()
+# ax3 = ax1.twinx()
+# ax3.plot(delta, color='g')
+# ax3.set_ylabel('Delta', color='g')
+# ax3.tick_params('y', colors='g')
+# ax3.spines["right"].set_position(("axes", 1.2))
 ax2.plot(epsilons, color='r')
-ax3.plot(delta, color='g')
 ax1.set_ylabel('Score')
 ax2.set_ylabel('Epsilon', color='r')
-ax3.set_ylabel('Delta', color='g')
 ax2.tick_params('y', colors='r')
-ax3.tick_params('y', colors='g')
 plt.title("Score, and Epsilon over training")
 ax1.set_xlabel("Episodes")
-ax3.spines["right"].set_position(("axes", 1.2))
 plt.figure()
 plt.show()
 
@@ -326,19 +342,23 @@ done = False
 g.print()
 moves = 0
 s = 0
-while not done:
+while not done and moves < maxSteps:
     moves +=1
     time.sleep(1)
     print(trainer.model.predict(np.array([g._get_state()])))
     action = trainer.get_best_action(g._get_state(), rand=False)
     next_state, reward, done, _ = g.move(action)
     s += reward
+    delta = abs(objective - moves)
     g.print()
     print("reward : ", reward)
     print("score : ", s)
     print("moves : ", moves)
-    print("delta : ", abs(objective - moves))
+    print("delta : ", delta)
     print(Game.ACTION_NAMES[action])
+
+saveResult(s, numberOfEpisodes, delta, objective, moves)
+
 
 
 state = flatten(g._get_grille(0, 1))

@@ -221,6 +221,20 @@ print("Score over time: " + str(sum(cumul_reward_list[-100:]) / 100.0))
 game.reset()
 game.print()
 
+import pandas as pd
+from datetime import date, datetime
+
+def saveResult(score, numberOfEpisodes, delta, objective, moves):
+    day = date.today().strftime("%d%m%Y")
+    time = datetime.now().strftime("%H%M%S")
+    file_name = 'QT' + day + time + '.cvs'
+    result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
+              'delta': [delta], 'objective': [objective], 'moves': [moves],
+              'day': [day], 'time': [time]}
+    df = pd.DataFrame(data=result)
+    print(df)
+    df.to_csv(file_name, encoding='utf-8', index=False)
+
 import matplotlib.pyplot as plt
 
 fig, ax1 = plt.subplots()
@@ -255,11 +269,15 @@ while not d:
     a = np.argmax(Q[s, :])
     s, r, d, _ = g.move(a)
     score += r
+    delta = abs(objective - moves)
     clear_output(wait=True)
     g.print()
     print("reward : ", r)
     print("score : ", score)
     print("moves : ", moves)
-    print("delta : ", abs(objective - moves))
+    print("delta : ", delta)
     print(Game.ACTION_NAMES[a])
     sleep(0.5)
+
+saveResult(s, num_episodes, delta, objective, moves)
+

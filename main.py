@@ -3,19 +3,19 @@ import random
 # Random environment each time
 # Neural network used
 
-#TODO Save result in cvs files
 #TODO Make it work for any numbers of exits, walls and holes
 #TODO Make epsilon proportional to number of episodes
+#TODO merge the 3 algo in 1
 
 flatten = lambda l: [item for sublist in l for item in sublist]
 length = 8
 width = 8
-maxSteps = length * width
+maxSteps = width * length
 exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 15
-numberOfEpisodes = 1000
+numberOfEpisodes = 10000
 
 
 
@@ -146,12 +146,7 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        r = 0
-
-        if self.counter <= objective:
-            r = -1
-        else:
-            r = -1
+        r = -1
 
         if (new_x, new_y) in self.block:
             return self._get_state(), r, False, self.ACTIONS
@@ -341,11 +336,26 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
         if e % 200 == 0:
             print("episode: {}/{}, moves: {}, score: {}, epsilon: {}, loss: {}, delta: {}"
                   .format(e, episodes, steps, score, trainer.epsilon, losses[-1], abs(steps - objective)))
-        if e > 0 and e % snapshot == 0:
-            trainer.save(id='iteration-%s' % e)
+        # if e > 0 and e % snapshot == 0:
+        #     trainer.save(id='iteration-%s' % e)
     return scores, losses, epsilons, delta
 
-trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.9995))
+import pandas as pd
+from datetime import date, datetime
+
+def saveResult(score, numberOfEpisodes, delta, objective, moves):
+    day = date.today().strftime("%d%m%Y")
+    time = datetime.now().strftime("%H%M%S")
+    file_name = 'DNN' + day + time + '.cvs'
+    result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
+              'delta': [delta], 'objective': [objective], 'moves': [moves],
+              'day': [day], 'time': [time]}
+    df = pd.DataFrame(data=result)
+    print(df)
+    df.to_csv(file_name, encoding='utf-8', index=False)
+
+
+trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
 #0.999995
 
 scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
@@ -391,7 +401,7 @@ done = False
 time.sleep(5)
 moves = 0
 s = 0
-while not done:
+while not done and moves < maxSteps:
     moves += 1
     time.sleep(1)
     display.clear_output(wait=True)
@@ -401,8 +411,10 @@ while not done:
     next_state, reward, done, _ = g.move(action)
     g.print()
     s += reward
+    delta = abs(objective - moves)
     print('Reward', reward)
     print('Score', s)
     print('Moves', moves)
-    print("delta : ", abs(objective - moves))
+    print("delta : ", delta)
 
+saveResult(s, numberOfEpisodes, delta, objective, moves)
