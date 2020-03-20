@@ -8,8 +8,8 @@ length = 8
 width = 8
 maxSteps = length * width
 exitNumber = 1
-holeNumber = 1
-wallNumber = 1
+holeNumber = 0
+wallNumber = 0
 objective = 15
 
 
@@ -136,9 +136,9 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        r = 1
-        if self.counter >= objective:
-            r = -1
+        r = 0
+        r2 = 100/(abs(objective - self.counter) + 1)
+
 
         if (new_x, new_y) in self.block:
             return self._get_state(), r, False, self.ACTIONS
@@ -147,7 +147,7 @@ class Game:
             return self._get_state(), -50, True, None
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), r, True, self.ACTIONS
+            return self._get_state(), r2, True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
             return self._get_state(), r, False, self.ACTIONS
         elif self.counter > maxSteps:
@@ -227,10 +227,12 @@ from datetime import date, datetime
 def saveResult(score, numberOfEpisodes, delta, objective, moves):
     day = date.today().strftime("%d%m%Y")
     time = datetime.now().strftime("%H%M%S")
-    file_name = 'QT' + day + time + '.cvs'
+    file_name = 'QT' + day + time + '.csv'
+    description = input('Description: ')
+
     result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
               'delta': [delta], 'objective': [objective], 'moves': [moves],
-              'day': [day], 'time': [time]}
+              'day': [day], 'time': [time], 'description': [description]}
     df = pd.DataFrame(data=result)
     print(df)
     df.to_csv(file_name, encoding='utf-8', index=False)

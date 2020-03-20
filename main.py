@@ -6,6 +6,7 @@ import random
 #TODO Make it work for any numbers of exits, walls and holes
 #TODO Make epsilon proportional to number of episodes
 #TODO merge the 3 algo in 1
+#TODO Save results in the same csv file for each algo
 
 flatten = lambda l: [item for sublist in l for item in sublist]
 length = 8
@@ -15,7 +16,7 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 15
-numberOfEpisodes = 10000
+numberOfEpisodes = 500000
 
 
 
@@ -27,7 +28,7 @@ class Game:
 
     ACTIONS = [ACTION_DOWN, ACTION_LEFT, ACTION_RIGHT, ACTION_UP]
 
-    ACTION_NAMES = ["UP   ", "LEFT ", "DOWN ", "RIGHT"]
+    ACTION_NAMES = ["UP", "LEFT ", "DOWN ", "RIGHT"]
 
     MOVEMENTS = {
         ACTION_UP: (1, 0),
@@ -146,7 +147,9 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        r = -1
+        r = 0.1
+        r2 = 100/(abs(objective - self.counter) + 1)
+
 
         if (new_x, new_y) in self.block:
             return self._get_state(), r, False, self.ACTIONS
@@ -155,7 +158,7 @@ class Game:
             return self._get_state(), -30, True, None
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), 10 , True, self.ACTIONS
+            return self._get_state(), r2 , True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
             return self._get_state(), r , False, self.ACTIONS
         elif self.counter > maxSteps:
@@ -238,8 +241,8 @@ class Trainer:
         action = np.argmax(act_values[0])
         return action
 
-    def remember(self, state, action, reward, next_state, done):
-        self.memory.append([state, action, reward, next_state, done])
+    def remember(self, state, action, reward, next_state, done, delta):
+        self.memory.append([state, action, reward, next_state, done, delta])
 
     def replay(self, batch_size):
         batch_size = min(batch_size, len(self.memory))
@@ -249,7 +252,7 @@ class Trainer:
         inputs = np.zeros((batch_size, self.state_size))
         outputs = np.zeros((batch_size, self.action_size))
 
-        for i, (state, action, reward, next_state, done) in enumerate(minibatch):
+        for i, (state, action, reward, next_state, done, delta) in enumerate(minibatch):
             target = self.model.predict(state)[0]
             if done:
                 target[action] = reward
@@ -289,7 +292,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
 
     # we start with a sequence to collect information, without learning
     if collecting:
-        collecting_steps = 10000
+        collecting_steps = numberOfEpisodes/3
         print("Collecting game without learning")
         steps = 0
         while steps < collecting_steps:
@@ -299,7 +302,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
                 steps += 1
                 action = g.get_random_action()
                 next_state, reward, done, _ = g.move(action)
-                trainer.remember(state, action, reward, next_state, done)
+                trainer.remember(state, action, reward, next_state, done, abs(steps - objective))
                 state = next_state
 
     print("Starting training")
@@ -318,7 +321,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             next_state, reward, done, _ = g.move(action)
             next_state = np.reshape(next_state, [1, width * length * 2])
             score += reward
-            trainer.remember(state, action, reward, next_state, done)
+            trainer.remember(state, action, reward, next_state, done, abs(steps - objective))
             state = next_state
             if global_counter % 100 == 0:
                 l = trainer.replay(batch_size)
@@ -346,16 +349,17 @@ from datetime import date, datetime
 def saveResult(score, numberOfEpisodes, delta, objective, moves):
     day = date.today().strftime("%d%m%Y")
     time = datetime.now().strftime("%H%M%S")
-    file_name = 'DNN' + day + time + '.cvs'
+    file_name = 'DNN' + day + time + '.csv'
+    description = input('Description: ')
     result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
               'delta': [delta], 'objective': [objective], 'moves': [moves],
-              'day': [day], 'time': [time]}
+              'day': [day], 'time': [time], 'description': [description]}
     df = pd.DataFrame(data=result)
     print(df)
     df.to_csv(file_name, encoding='utf-8', index=False)
 
 
-trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
+trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.9999995))
 #0.999995
 
 scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
@@ -415,6 +419,6 @@ while not done and moves < maxSteps:
     print('Reward', reward)
     print('Score', s)
     print('Moves', moves)
-    print("delta : ", delta)
+    print("Delta : ", delta)
 
 saveResult(s, numberOfEpisodes, delta, objective, moves)
