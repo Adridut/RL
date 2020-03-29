@@ -14,11 +14,13 @@ objective = 15
 
 
 
+
 class Game:
     ACTION_UP = 0
     ACTION_LEFT = 1
     ACTION_DOWN = 2
     ACTION_RIGHT = 3
+
 
     ACTIONS = [ACTION_DOWN, ACTION_LEFT, ACTION_RIGHT, ACTION_UP]
 
@@ -81,10 +83,21 @@ class Game:
         # block = random.choice(cases)
         # cases.remove(block)
 
+        key = (0,0)
+        for e in cases:
+            distance1 = abs(abs((e[0] - end[0][0]) + (e[1] - end[0][1])) + abs((start[0] - e[0]) + (start[1] - e[1])) - objective)
+            distance2 = abs(abs((key[0] - end[0][0]) + (key[1] - end[0][1])) + abs((start[0] - key[0]) + (start[1] - key[1])) - objective)
+            if distance1 < distance2:
+                key = e
+
+
+        self.hasKey = False
+        self.key = key
         self.position = start
         self.end = end
         self.hole = hole
         self.block = block
+
 
         self.counter = 0
 
@@ -96,6 +109,7 @@ class Game:
         if not self.alea:
             self.position = self.start
             self.counter = 0
+            self.hasKey = False
             return self._get_state()
         else:
             return self.generate_game()
@@ -110,7 +124,7 @@ class Game:
     def _get_state(self):
         if self.alea:
             return [self._get_grille(x, y) for (x, y) in
-                    [self.position, self.end, self.block, self.hole]]
+                    [self.position, self.end, self.block, self.hole, self.key, self.hasKey]]
         return self._position_to_id(*self.position)
 
     def move(self, action):
@@ -136,8 +150,28 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        r = 0
-        r2 = 100/(abs(objective - self.counter) + 1)
+        oldDistancePK = abs(self.key[0] - x) + abs(self.key[1] - y)
+        oldDistancePE = abs(self.end[0][0] - x) + abs(self.end[0][1] - y)
+        newDistancePK = abs(self.key[0] - new_x) + abs(self.key[1] - new_y)
+        newDistancePE = abs(self.end[0][0] - new_x) + abs(self.end[0][1] - new_y)
+
+        if oldDistancePE <= newDistancePE:
+            r1 = -1
+        else:
+            r1 = 0
+        if oldDistancePK <= newDistancePK:
+            r2 = -1
+        else:
+            r2 = 0
+
+        if self.hasKey:
+            k = -2
+            e = 10
+            r = r1
+        else:
+            k = 30
+            e = -10
+            r = r2
 
 
         if (new_x, new_y) in self.block:
@@ -145,9 +179,13 @@ class Game:
         elif (new_x, new_y) in self.hole:
             self.position = new_x, new_y
             return self._get_state(), -50, True, None
+        elif (new_x, new_y) == self.key:
+            self.position = new_x, new_y
+            self.hasKey = True
+            return self._get_state(), k, False, self.ACTIONS
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), r2, True, self.ACTIONS
+            return self._get_state(), e, True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
             return self._get_state(), r, False, self.ACTIONS
         elif self.counter > maxSteps:
@@ -169,6 +207,8 @@ class Game:
                     str += "o"
                 elif (i, j) in self.end:
                     str += "@"
+                elif (i, j) == self.key:
+                    str += "+"
                 else:
                     str += "."
             str += "\n"
@@ -241,11 +281,11 @@ import matplotlib.pyplot as plt
 
 fig, ax1 = plt.subplots()
 ax1.plot(cumul_reward_list[:num_episodes])
-ax2 = ax1.twinx()
-ax2.plot(delta, color='g')
 ax1.set_ylabel('Score')
-ax2.set_ylabel('Delta', color='g')
-ax2.tick_params('y', colors='g')
+# ax2 = ax1.twinx()
+# ax2.plot(delta, color='g')
+# ax2.set_ylabel('Delta', color='g')
+# ax2.tick_params('y', colors='g')
 plt.title("Score, and Delta over training")
 ax1.set_xlabel("Episodes")
 plt.figure()
