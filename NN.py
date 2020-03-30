@@ -12,7 +12,7 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 15
-numberOfEpisodes = 10000
+numberOfEpisodes = 5000
 
 
 class Game:
@@ -82,6 +82,15 @@ class Game:
         # block = random.choice(cases)
         # cases.remove(block)
 
+        key = (0,0)
+        for e in cases:
+            distance1 = abs(abs((e[0] - end[0][0]) + (e[1] - end[0][1])) + abs((start[0] - e[0]) + (start[1] - e[1])) - objective)
+            distance2 = abs(abs((key[0] - end[0][0]) + (key[1] - end[0][1])) + abs((start[0] - key[0]) + (start[1] - key[1])) - objective)
+            if distance1 < distance2:
+                key = e
+
+        self.hasKey = False
+        self.key = key
         self.position = start
         self.end = end
         self.hole = hole
@@ -97,6 +106,7 @@ class Game:
         if not self.alea:
             self.position = self.start
             self.counter = 0
+            self.hasKey = False
             return self._get_state()
         else:
             return self.generate_game()
@@ -112,7 +122,7 @@ class Game:
         x, y = self.position
         if self.alea:
             return [self._get_grille(x, y) for (x, y) in
-                    [self.position, self.end, self.block, self.hole]]
+                    [self.position, self.end, self.block, self.hole, self.key, self.hasKey]]
         return flatten(self._get_grille(x, y))
 
     def move(self, action):
@@ -140,23 +150,41 @@ class Game:
 
         delta = abs(objective - self.counter)
 
+        oldDistancePK = abs(self.key[0] - x) + abs(self.key[1] - y)
+        oldDistancePE = abs(self.end[0][0] - x) + abs(self.end[0][1] - y)
+        newDistancePK = abs(self.key[0] - new_x) + abs(self.key[1] - new_y)
+        newDistancePE = abs(self.end[0][0] - new_x) + abs(self.end[0][1] - new_y)
 
-        if self.counter <= objective:
-            r = 1
+        if oldDistancePE <= newDistancePE:
+            r1 = -1
         else:
-            r = -1
+            r1 = 0
+        if oldDistancePK <= newDistancePK:
+            r2 = -1
+        else:
+            r2 = 0
 
-        r2 = 100/(abs(objective - self.counter) + 1)
-
+        if self.hasKey:
+            k = -5
+            e = 1
+            r = r1
+        else:
+            k = 10
+            e = -1
+            r = r2
 
         if (new_x, new_y) in self.block:
             return self._get_state(), r, False, self.ACTIONS
         elif (new_x, new_y) in self.hole:
             self.position = new_x, new_y
             return self._get_state(), -50, True, None
+        elif (new_x, new_y) == self.key:
+            self.position = new_x, new_y
+            self.hasKey = True
+            return self._get_state(), k, False, self.ACTIONS
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), r2, True, self.ACTIONS
+            return self._get_state(), e, True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
             return self._get_state(), r, False, self.ACTIONS
         elif self.counter > maxSteps:
@@ -176,6 +204,8 @@ class Game:
                     str += "¤"
                 elif (i, j) in self.hole:
                     str += "o"
+                elif (i, j) == self.key:
+                    str += "+"
                 elif (i, j) in self.end:
                     str += "@"
                 else:
@@ -213,8 +243,9 @@ class Trainer:
             model = load_model("model-" + name)
         else:
             model = Sequential()
-            model.add(Dense(24, input_shape=(self.state_size,), activation='relu'))
-            model.add(Dense(24, activation="relu"))
+            #try with 25, state+8?
+            model.add(Dense(self.state_size, input_shape=(self.state_size,), activation='relu'))
+            model.add(Dense(self.state_size, activation="relu"))
             model.add(Dense(self.action_size, activation='linear'))
             model.compile(loss='mse', optimizer=sgd(lr=self.learning_rate))
 
