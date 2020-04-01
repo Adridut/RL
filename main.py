@@ -7,6 +7,8 @@ import random
 #TODO Make epsilon proportional to number of episodes
 #TODO merge the 3 algo in 1
 #TODO Save results in the same csv file for each algo
+#TODO Save pyplot fig
+#TODO Save environment
 
 flatten = lambda l: [item for sublist in l for item in sublist]
 length = 8
@@ -16,7 +18,7 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 15
-numberOfEpisodes = 500000
+numberOfEpisodes = 35000
 
 
 
@@ -85,9 +87,21 @@ class Game:
             block[i] = tuple(block[i])
             cases.remove(block[i])
             i += 1
-        # block = random.choice(cases)
-        # cases.remove(block)
 
+
+
+        key = (0, 0)
+        for e in cases:
+            distance1 = abs((abs(e[0] - end[0][0]) + abs(e[1] - end[0][1])) + (
+                    abs(start[0] - e[0]) + abs(start[1] - e[1])) - objective)
+            distance2 = abs((abs(key[0] - end[0][0]) + abs(key[1] - end[0][1])) + (
+                    abs(start[0] - key[0]) + abs(start[1] - key[1])) - objective)
+            if distance1 < distance2:
+                key = e
+
+        self.hasKey = False
+        self.key = key
+        self.saveKey = key
         self.position = start
         self.end = end
         self.hole = hole
@@ -103,6 +117,8 @@ class Game:
         if not self.alea:
             self.position = self.start
             self.counter = 0
+            self.hasKey = False
+            self.key = self.saveKey
             return self._get_state()
         else:
             return self.generate_game()
@@ -118,7 +134,7 @@ class Game:
         x, y = self.position
         if self.alea:
             return np.reshape([self._get_grille(x, y) for [(x, y)] in
-                               [[self.position], self.end]], (1, width * length * 2))
+                               [[self.position], self.end, [self.key]]], (1, width * length * 3))
         return flatten(self._get_grille(x, y))
 
     def get_random_action(self):
@@ -147,18 +163,42 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        r = 0.1
-        r2 = 100/(abs(objective - self.counter) + 1)
+        oldDistancePK = abs(self.key[0] - x) + abs(self.key[1] - y)
+        oldDistancePE = abs(self.end[0][0] - x) + abs(self.end[0][1] - y)
+        newDistancePK = abs(self.key[0] - new_x) + abs(self.key[1] - new_y)
+        newDistancePE = abs(self.end[0][0] - new_x) + abs(self.end[0][1] - new_y)
 
+        if oldDistancePE <= newDistancePE:
+            r1 = -1
+        else:
+            r1 = 1
+        if oldDistancePK <= newDistancePK:
+            r2 = -1
+        else:
+            r2 = 1
+
+        if self.hasKey:
+            k = -1
+            e = 1
+            r = r1
+        else:
+            k = 1
+            e = -1
+            r = r2
 
         if (new_x, new_y) in self.block:
             return self._get_state(), r, False, self.ACTIONS
         elif (new_x, new_y) in self.hole:
             self.position = new_x, new_y
             return self._get_state(), -30, True, None
+        elif (new_x, new_y) == self.key:
+            self.position = new_x, new_y
+            self.hasKey = True
+            # self.key = self.end
+            return self._get_state(), k, False, self.ACTIONS
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), r2 , True, self.ACTIONS
+            return self._get_state(), e , True, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
             return self._get_state(), r , False, self.ACTIONS
         elif self.counter > maxSteps:
@@ -178,6 +218,8 @@ class Game:
                     str += "¤"
                 elif (i, j) in self.hole:
                     str += "o"
+                elif (i, j) == self.key:
+                    str += "+"
                 elif (i, j) in self.end:
                     str += "@"
                 else:
@@ -202,7 +244,7 @@ from collections import deque
 
 class Trainer:
     def __init__(self, name=None, learning_rate=0.001, epsilon_decay=0.9999, batch_size=30, memory_size=3000):
-        self.state_size = width * length * 2
+        self.state_size = width * length * 3
         self.action_size = 4
         self.gamma = 0.9
         self.epsilon = 1.0
@@ -309,7 +351,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
     global_counter = 0
     for e in range(episodes+1):
         state = g.generate_game()
-        state = np.reshape(state, [1, width * length * 2])
+        state = np.reshape(state, [1, width * length * 3])
         score = 0
         done = False
         steps = 0
@@ -319,7 +361,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             action = trainer.get_best_action(state)
             trainer.decay_epsilon()
             next_state, reward, done, _ = g.move(action)
-            next_state = np.reshape(next_state, [1, width * length * 2])
+            next_state = np.reshape(next_state, [1, width * length * 3])
             score += reward
             trainer.remember(state, action, reward, next_state, done, abs(steps - objective))
             state = next_state
@@ -359,7 +401,7 @@ def saveResult(score, numberOfEpisodes, delta, objective, moves):
     df.to_csv(file_name, encoding='utf-8', index=False)
 
 
-trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.9999995))
+trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999999))
 #0.999995
 
 scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
