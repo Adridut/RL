@@ -12,6 +12,12 @@ holeNumber = 0
 wallNumber = 0
 objective = 15
 
+from datetime import date, datetime
+
+day = date.today().strftime("%d%m%Y")
+time = datetime.now().strftime("%H%M%S")
+file_name = 'QT' + day + time
+
 
 
 
@@ -85,8 +91,8 @@ class Game:
 
         key = (0,0)
         for e in cases:
-            distance1 = abs(abs((e[0] - end[0][0]) + (e[1] - end[0][1])) + abs((start[0] - e[0]) + (start[1] - e[1])) - objective)
-            distance2 = abs(abs((key[0] - end[0][0]) + (key[1] - end[0][1])) + abs((start[0] - key[0]) + (start[1] - key[1])) - objective)
+            distance1 = abs((abs(e[0] - end[0][0]) + abs(e[1] - end[0][1])) + (abs(start[0] - e[0]) + abs(start[1] - e[1])) - objective)
+            distance2 = abs((abs(key[0] - end[0][0]) + abs(key[1] - end[0][1])) + (abs(start[0] - key[0]) + abs(start[1] - key[1])) - objective)
             if distance1 < distance2:
                 key = e
 
@@ -156,21 +162,21 @@ class Game:
         newDistancePE = abs(self.end[0][0] - new_x) + abs(self.end[0][1] - new_y)
 
         if oldDistancePE <= newDistancePE:
-            r1 = -1
+            r1 = -2
         else:
-            r1 = 0
+            r1 = 1
         if oldDistancePK <= newDistancePK:
-            r2 = -1
+            r2 = -2
         else:
-            r2 = 0
+            r2 = 1
 
         if self.hasKey:
             k = -2
-            e = 10
+            e = 1
             r = r1
         else:
-            k = 30
-            e = -10
+            k = 1
+            e = -2
             r = r2
 
 
@@ -212,7 +218,7 @@ class Game:
                 else:
                     str += "."
             str += "\n"
-        print(str)
+        return str
 
 
 ## q learning with table
@@ -262,12 +268,11 @@ game.reset()
 game.print()
 
 import pandas as pd
-from datetime import date, datetime
 
-def saveResult(score, numberOfEpisodes, delta, objective, moves):
-    day = date.today().strftime("%d%m%Y")
-    time = datetime.now().strftime("%H%M%S")
-    file_name = 'QT' + day + time + '.csv'
+
+def saveResult(score, numberOfEpisodes, delta, objective, moves, plt, board):
+    plt.figure()
+    plt.show()
     description = input('Description: ')
 
     result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
@@ -275,26 +280,31 @@ def saveResult(score, numberOfEpisodes, delta, objective, moves):
               'day': [day], 'time': [time], 'description': [description]}
     df = pd.DataFrame(data=result)
     print(df)
-    df.to_csv(file_name, encoding='utf-8', index=False)
+    df.to_csv(file_name + '.csv', encoding='utf-8', index=False)
+    boardResult = {'board': board}
+    df = pd.DataFrame(data=boardResult)
+    df.to_csv(file_name + 'board' +  '.csv', encoding='utf-8', index=False)
 
-import matplotlib.pyplot as plt
-
-fig, ax1 = plt.subplots()
-ax1.plot(cumul_reward_list[:num_episodes])
-ax1.set_ylabel('Score')
-# ax2 = ax1.twinx()
-# ax2.plot(delta, color='g')
-# ax2.set_ylabel('Delta', color='g')
-# ax2.tick_params('y', colors='g')
-plt.title("Score, and Delta over training")
-ax1.set_xlabel("Episodes")
-plt.figure()
-plt.show()
 
 # t = Trainer(filepath="model-1496937952")
 
 from time import sleep
 from IPython.display import clear_output
+import matplotlib.pyplot as plt
+
+
+fig, ax1 = plt.subplots()
+ax1.plot(cumul_reward_list[:num_episodes])
+ax1.set_ylabel('Score')
+ax2 = ax1.twinx()
+ax2.plot(delta, color='g')
+ax2.set_ylabel('Delta', color='g')
+ax2.tick_params('y', colors='g')
+plt.title("Score, and Delta over training")
+ax1.set_xlabel("Episodes")
+plt.savefig(file_name + '.png', dpi=None, facecolor='w', edgecolor='w',
+            orientation='portrait', papertype=None, format=None,
+            transparent=False, bbox_inches=None, pad_inches=0.1, metadata=None)
 
 d = False
 g = game
@@ -305,6 +315,7 @@ print("score : ", 0)
 score = 0
 sleep(2)
 moves = 0
+board = []
 while not d:
     moves += 1
     g._get_state()
@@ -313,7 +324,8 @@ while not d:
     score += r
     delta = abs(objective - moves)
     clear_output(wait=True)
-    g.print()
+    print(g.print())
+    board.append(g.print())
     print("reward : ", r)
     print("score : ", score)
     print("moves : ", moves)
@@ -321,5 +333,5 @@ while not d:
     print(Game.ACTION_NAMES[a])
     sleep(0.5)
 
-saveResult(s, num_episodes, delta, objective, moves)
+saveResult(s, num_episodes, delta, objective, moves, plt, board)
 
