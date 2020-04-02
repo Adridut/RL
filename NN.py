@@ -12,7 +12,13 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 15
-numberOfEpisodes = 5000
+numberOfEpisodes = 10
+
+from datetime import date, datetime
+
+day = date.today().strftime("%d%m%Y")
+time = datetime.now().strftime("%H%M%S")
+file_name = 'SNN' + day + time
 
 
 class Game:
@@ -84,8 +90,10 @@ class Game:
 
         key = (0,0)
         for e in cases:
-            distance1 = abs(abs((e[0] - end[0][0]) + (e[1] - end[0][1])) + abs((start[0] - e[0]) + (start[1] - e[1])) - objective)
-            distance2 = abs(abs((key[0] - end[0][0]) + (key[1] - end[0][1])) + abs((start[0] - key[0]) + (start[1] - key[1])) - objective)
+            distance1 = abs((abs(e[0] - end[0][0]) + abs(e[1] - end[0][1])) + (
+                        abs(start[0] - e[0]) + abs(start[1] - e[1])) - objective)
+            distance2 = abs((abs(key[0] - end[0][0]) + abs(key[1] - end[0][1])) + (
+                        abs(start[0] - key[0]) + abs(start[1] - key[1])) - objective)
             if distance1 < distance2:
                 key = e
 
@@ -156,21 +164,21 @@ class Game:
         newDistancePE = abs(self.end[0][0] - new_x) + abs(self.end[0][1] - new_y)
 
         if oldDistancePE <= newDistancePE:
-            r1 = -1
+            r1 = -2
         else:
-            r1 = 0
+            r1 = 1
         if oldDistancePK <= newDistancePK:
-            r2 = -1
+            r2 = -2
         else:
-            r2 = 0
+            r2 = 1
 
         if self.hasKey:
-            k = -5
+            k = -2
             e = 1
             r = r1
         else:
-            k = 10
-            e = -1
+            k = 1
+            e = -2
             r = r2
 
         if (new_x, new_y) in self.block:
@@ -211,7 +219,7 @@ class Game:
                 else:
                     str += "."
             str += "\n"
-        print(str)
+        return str
 
 
 import numpy as np
@@ -327,19 +335,18 @@ g.print()
 g._get_state()
 
 import pandas as pd
-from datetime import date, datetime
 
-def saveResult(score, numberOfEpisodes, delta, objective, moves):
-    day = date.today().strftime("%d%m%Y")
-    time = datetime.now().strftime("%H%M%S")
-    file_name = 'SNN' + day + time + '.csv'
+def saveResult(score, numberOfEpisodes, delta, objective, moves, board):
     description = input('Description: ')
     result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
               'delta': [delta], 'objective': [objective], 'moves': [moves],
               'day': [day], 'time': [time], 'description': [description]}
     df = pd.DataFrame(data=result)
     print(df)
-    df.to_csv(file_name, encoding='utf-8', index=False)
+    df.to_csv(file_name + '.csv', encoding='utf-8', index=False)
+    boardResult = {'board': board}
+    df = pd.DataFrame(data=boardResult)
+    df.to_csv(file_name + 'board' + '.csv', encoding='utf-8', index=False)
 
 trainer = Trainer(learning_rate=0.01, epsilon_decay=0.99999)
 #0.01, 0.9999
@@ -366,6 +373,7 @@ ax2.set_ylabel('Epsilon', color='r')
 ax2.tick_params('y', colors='r')
 plt.title("Score, and Epsilon over training")
 ax1.set_xlabel("Episodes")
+plt.savefig(file_name + '.png')
 plt.figure()
 plt.show()
 
@@ -376,9 +384,10 @@ import time
 state = g.reset()
 state = g._get_state()
 done = False
-g.print()
+print(g.print())
 moves = 0
 s = 0
+board = []
 while not done and moves < maxSteps:
     moves +=1
     time.sleep(1)
@@ -387,14 +396,15 @@ while not done and moves < maxSteps:
     next_state, reward, done, _ = g.move(action)
     s += reward
     delta = abs(objective - moves)
-    g.print()
+    print(g.print())
+    board.append(g.print())
     print("reward : ", reward)
     print("score : ", s)
     print("moves : ", moves)
     print("delta : ", delta)
     print(Game.ACTION_NAMES[action])
 
-saveResult(s, numberOfEpisodes, delta, objective, moves)
+saveResult(s, numberOfEpisodes, delta, objective, moves, board)
 
 
 

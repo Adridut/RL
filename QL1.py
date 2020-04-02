@@ -271,8 +271,7 @@ import pandas as pd
 
 
 def saveResult(score, numberOfEpisodes, delta, objective, moves, plt, board):
-    plt.figure()
-    plt.show()
+
     description = input('Description: ')
 
     result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
@@ -302,9 +301,9 @@ ax2.set_ylabel('Delta', color='g')
 ax2.tick_params('y', colors='g')
 plt.title("Score, and Delta over training")
 ax1.set_xlabel("Episodes")
-plt.savefig(file_name + '.png', dpi=None, facecolor='w', edgecolor='w',
-            orientation='portrait', papertype=None, format=None,
-            transparent=False, bbox_inches=None, pad_inches=0.1, metadata=None)
+plt.savefig(file_name + '.png')
+plt.figure()
+plt.show()
 
 d = False
 g = game

@@ -18,7 +18,13 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 15
-numberOfEpisodes = 35000
+numberOfEpisodes = 10
+
+from datetime import date, datetime
+
+day = date.today().strftime("%d%m%Y")
+time = datetime.now().strftime("%H%M%S")
+file_name = 'DNN' + day + time
 
 
 
@@ -225,7 +231,7 @@ class Game:
                 else:
                     str += "."
             str += "\n"
-        print(str)
+        return str
 
 
 # defining the neural network
@@ -386,19 +392,18 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
     return scores, losses, epsilons, delta
 
 import pandas as pd
-from datetime import date, datetime
 
-def saveResult(score, numberOfEpisodes, delta, objective, moves):
-    day = date.today().strftime("%d%m%Y")
-    time = datetime.now().strftime("%H%M%S")
-    file_name = 'DNN' + day + time + '.csv'
+def saveResult(score, numberOfEpisodes, delta, objective, moves, board):
     description = input('Description: ')
     result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
               'delta': [delta], 'objective': [objective], 'moves': [moves],
               'day': [day], 'time': [time], 'description': [description]}
     df = pd.DataFrame(data=result)
     print(df)
-    df.to_csv(file_name, encoding='utf-8', index=False)
+    df.to_csv(file_name + '.csv', encoding='utf-8', index=False)
+    boardResult = {'board': board}
+    df = pd.DataFrame(data=boardResult)
+    df.to_csv(file_name + 'board' + '.csv', encoding='utf-8', index=False)
 
 
 trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999999))
@@ -429,6 +434,7 @@ ax2.set_ylabel('Epsilon', color='r')
 ax2.tick_params('y', colors='r')
 plt.title("Score, and Epsilon over training")
 ax1.set_xlabel("Episodes")
+plt.savefig(file_name + '.png')
 plt.figure()
 plt.show()
 
@@ -442,11 +448,12 @@ state = g.reset()
 state = g._get_state()
 print("state")
 print("  ")
-g.print()
+print(g.print())
 done = False
 time.sleep(5)
 moves = 0
 s = 0
+board = []
 while not done and moves < maxSteps:
     moves += 1
     time.sleep(1)
@@ -455,7 +462,8 @@ while not done and moves < maxSteps:
     action = trainer.get_best_action(g._get_state(), rand=False)
     print(Game.ACTION_NAMES[action])
     next_state, reward, done, _ = g.move(action)
-    g.print()
+    print(g.print())
+    board.append(g.print())
     s += reward
     delta = abs(objective - moves)
     print('Reward', reward)
@@ -463,4 +471,4 @@ while not done and moves < maxSteps:
     print('Moves', moves)
     print("Delta : ", delta)
 
-saveResult(s, numberOfEpisodes, delta, objective, moves)
+saveResult(s, numberOfEpisodes, delta, objective, moves, board)
