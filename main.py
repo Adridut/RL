@@ -7,8 +7,6 @@ import random
 #TODO Make epsilon proportional to number of episodes
 #TODO merge the 3 algo in 1
 #TODO Save results in the same csv file for each algo
-#TODO Save pyplot fig
-#TODO Save environment
 
 flatten = lambda l: [item for sublist in l for item in sublist]
 length = 8
@@ -105,7 +103,7 @@ class Game:
             if distance1 < distance2:
                 key = e
 
-        self.hasKey = False
+        self.hasKey = (False, False)
         self.key = key
         self.saveKey = key
         self.position = start
@@ -123,7 +121,7 @@ class Game:
         if not self.alea:
             self.position = self.start
             self.counter = 0
-            self.hasKey = False
+            self.hasKey = (False, False)
             self.key = self.saveKey
             return self._get_state()
         else:
@@ -140,7 +138,7 @@ class Game:
         x, y = self.position
         if self.alea:
             return np.reshape([self._get_grille(x, y) for [(x, y)] in
-                               [[self.position], self.end, [self.key]]], (1, width * length * 3))
+                               [[self.position], self.end, [self.key], [self.hasKey]]], (1, width * length * 4))
         return flatten(self._get_grille(x, y))
 
     def get_random_action(self):
@@ -175,21 +173,21 @@ class Game:
         newDistancePE = abs(self.end[0][0] - new_x) + abs(self.end[0][1] - new_y)
 
         if oldDistancePE <= newDistancePE:
-            r1 = -1
+            r1 = -2
         else:
             r1 = 1
         if oldDistancePK <= newDistancePK:
-            r2 = -1
+            r2 = -2
         else:
             r2 = 1
 
-        if self.hasKey:
-            k = -1
+        if self.hasKey[0]:
+            k = -2
             e = 1
             r = r1
         else:
             k = 1
-            e = -1
+            e = -2
             r = r2
 
         if (new_x, new_y) in self.block:
@@ -199,7 +197,7 @@ class Game:
             return self._get_state(), -30, True, None
         elif (new_x, new_y) == self.key:
             self.position = new_x, new_y
-            self.hasKey = True
+            self.hasKey = (True, True)
             # self.key = self.end
             return self._get_state(), k, False, self.ACTIONS
         elif (new_x, new_y) in self.end:
@@ -250,7 +248,7 @@ from collections import deque
 
 class Trainer:
     def __init__(self, name=None, learning_rate=0.001, epsilon_decay=0.9999, batch_size=30, memory_size=3000):
-        self.state_size = width * length * 3
+        self.state_size = width * length * 4
         self.action_size = 4
         self.gamma = 0.9
         self.epsilon = 1.0
@@ -265,7 +263,7 @@ class Trainer:
             model = load_model("model-" + name)
         else:
             model = Sequential()
-            model.add(Dense(50, input_dim=self.state_size, activation='relu'))
+            model.add(Dense(self.state_size, input_dim=self.state_size, activation='relu'))
             model.add(Dense(30, activation='relu'))
             model.add(Dense(30, activation='relu'))
             model.add(Dense(self.action_size, activation='linear'))
@@ -357,7 +355,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
     global_counter = 0
     for e in range(episodes+1):
         state = g.generate_game()
-        state = np.reshape(state, [1, width * length * 3])
+        state = np.reshape(state, [1, width * length * 4])
         score = 0
         done = False
         steps = 0
@@ -367,7 +365,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             action = trainer.get_best_action(state)
             trainer.decay_epsilon()
             next_state, reward, done, _ = g.move(action)
-            next_state = np.reshape(next_state, [1, width * length * 3])
+            next_state = np.reshape(next_state, [1, width * length * 4])
             score += reward
             trainer.remember(state, action, reward, next_state, done, abs(steps - objective))
             state = next_state
@@ -406,7 +404,7 @@ def saveResult(score, numberOfEpisodes, delta, objective, moves, board):
     df.to_csv(file_name + 'board' + '.csv', encoding='utf-8', index=False)
 
 
-trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999999))
+trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999997))
 #0.999995
 
 scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
@@ -414,6 +412,8 @@ scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snap
 
 import matplotlib.pyplot as plt
 sc = smooth(scores, width=round(numberOfEpisodes/70) + 1)
+d = smooth(delta, width=round(numberOfEpisodes/70) + 1)
+
 
 # score = np.array(scores)
 # score_c = np.convolve(score, np.full((10,), 1/10), mode="same")
@@ -421,15 +421,16 @@ sc = smooth(scores, width=round(numberOfEpisodes/70) + 1)
 
 
 fig, ax1 = plt.subplots()
-ax1.plot(sc)
+ax1.plot(sc, color='b')
 ax2 = ax1.twinx()
 ax2.plot(epsilons, color='r')
-# ax3 = ax1.twinx()
-# ax3.plot(delta, color='g')
-# ax3.set_ylabel('Delta', color='g')
-# ax3.tick_params('y', colors='g')
-# ax3.spines["right"].set_position(("axes", 1.3))
-ax1.set_ylabel('Score')
+ax3 = ax1.twinx()
+ax3.plot(d, color='g')
+ax3.set_ylabel('Delta', color='g')
+ax3.tick_params('y', colors='g')
+ax3.spines["right"].set_position(("axes", 0.01))
+ax1.set_ylabel('Score', color='b')
+ax1.tick_params('y', colors='b')
 ax2.set_ylabel('Epsilon', color='r')
 ax2.tick_params('y', colors='r')
 plt.title("Score, and Epsilon over training")

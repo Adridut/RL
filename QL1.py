@@ -10,7 +10,7 @@ maxSteps = length * width
 exitNumber = 1
 holeNumber = 0
 wallNumber = 0
-objective = 15
+objective = 20
 
 from datetime import date, datetime
 
@@ -293,8 +293,9 @@ import matplotlib.pyplot as plt
 
 
 fig, ax1 = plt.subplots()
-ax1.plot(cumul_reward_list[:num_episodes])
-ax1.set_ylabel('Score')
+ax1.plot(cumul_reward_list[:num_episodes], color='b')
+ax1.set_ylabel('Score', color='b')
+ax1.tick_params('y', colors='b')
 ax2 = ax1.twinx()
 ax2.plot(delta, color='g')
 ax2.set_ylabel('Delta', color='g')

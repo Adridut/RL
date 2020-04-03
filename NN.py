@@ -348,7 +348,7 @@ def saveResult(score, numberOfEpisodes, delta, objective, moves, board):
     df = pd.DataFrame(data=boardResult)
     df.to_csv(file_name + 'board' + '.csv', encoding='utf-8', index=False)
 
-trainer = Trainer(learning_rate=0.01, epsilon_decay=0.99999)
+trainer = Trainer(learning_rate=0.01, epsilon_decay=0.99992)
 #0.01, 0.9999
 score, epsilons, delta = train(numberOfEpisodes, trainer, g)
 #2000
@@ -358,17 +358,20 @@ import matplotlib.pyplot as plt
 
 score = np.array(score)
 score_c = np.convolve(score, np.full((10,), 1/10), mode="same")
+d = np.convolve(delta, np.full((10,), 1/10), mode="same")
+
 
 fig, ax1 = plt.subplots()
-ax1.plot(score_c)
+ax1.plot(score_c, color='b')
 ax2 = ax1.twinx()
-# ax3 = ax1.twinx()
-# ax3.plot(delta, color='g')
-# ax3.set_ylabel('Delta', color='g')
-# ax3.tick_params('y', colors='g')
-# ax3.spines["right"].set_position(("axes", 1.2))
+ax3 = ax1.twinx()
+ax3.plot(d, color='g')
+ax3.set_ylabel('Delta', color='g')
+ax3.tick_params('y', colors='g')
+ax3.spines["right"].set_position(("axes", 0.01))
 ax2.plot(epsilons, color='r')
-ax1.set_ylabel('Score')
+ax1.set_ylabel('Score', color='b')
+ax1.tick_params('y', colors='b')
 ax2.set_ylabel('Epsilon', color='r')
 ax2.tick_params('y', colors='r')
 plt.title("Score, and Epsilon over training")
