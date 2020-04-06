@@ -11,12 +11,12 @@ import random
 flatten = lambda l: [item for sublist in l for item in sublist]
 length = 8
 width = 8
-maxSteps = width * length
+maxSteps = (width * length) - 1
 exitNumber = 1
 holeNumber = 0
 wallNumber = 0
-objective = 15
-numberOfEpisodes = 10
+objective = 50
+numberOfEpisodes = 200000
 
 from datetime import date, datetime
 
@@ -110,8 +110,11 @@ class Game:
         self.end = end
         self.hole = hole
         self.block = block
+        self.delta = (0,0)
 
         self.counter = 0
+        self.deltaI = 0
+        self.deltaJ = 0
 
         if not self.alea:
             self.start = start
@@ -121,7 +124,10 @@ class Game:
         if not self.alea:
             self.position = self.start
             self.counter = 0
+            self.deltaI = 0
+            self.deltaJ = 0
             self.hasKey = (False, False)
+            self.delta = (0, 0)
             self.key = self.saveKey
             return self._get_state()
         else:
@@ -138,7 +144,7 @@ class Game:
         x, y = self.position
         if self.alea:
             return np.reshape([self._get_grille(x, y) for [(x, y)] in
-                               [[self.position], self.end, [self.key], [self.hasKey]]], (1, width * length * 4))
+                               [[self.position], self.end, [self.key], [self.delta]]], (1, width * length * 4))
         return flatten(self._get_grille(x, y))
 
     def get_random_action(self):
@@ -167,28 +173,48 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        oldDistancePK = abs(self.key[0] - x) + abs(self.key[1] - y)
-        oldDistancePE = abs(self.end[0][0] - x) + abs(self.end[0][1] - y)
-        newDistancePK = abs(self.key[0] - new_x) + abs(self.key[1] - new_y)
-        newDistancePE = abs(self.end[0][0] - new_x) + abs(self.end[0][1] - new_y)
+        self.delta = (self.deltaJ, self.deltaI)
 
-        if oldDistancePE <= newDistancePE:
-            r1 = -2
-        else:
-            r1 = 1
-        if oldDistancePK <= newDistancePK:
-            r2 = -2
-        else:
-            r2 = 1
+        self.deltaI += 1
 
-        if self.hasKey[0]:
-            k = -2
-            e = 1
-            r = r1
+        if self.deltaI > (length-1):
+            self.deltaI = 0
+            self.deltaJ += 1
+
+        if self.counter <= objective:
+            r = 1
         else:
-            k = 1
-            e = -2
-            r = r2
+            r = -1
+
+        e = r
+        k = r
+
+
+
+
+
+        # oldDistancePK = abs(self.key[0] - x) + abs(self.key[1] - y)
+        # oldDistancePE = abs(self.end[0][0] - x) + abs(self.end[0][1] - y)
+        # newDistancePK = abs(self.key[0] - new_x) + abs(self.key[1] - new_y)
+        # newDistancePE = abs(self.end[0][0] - new_x) + abs(self.end[0][1] - new_y)
+        #
+        # if oldDistancePE <= newDistancePE:
+        #     r1 = -2
+        # else:
+        #     r1 = 1
+        # if oldDistancePK <= newDistancePK:
+        #     r2 = -2
+        # else:
+        #     r2 = 1
+        #
+        # if self.hasKey[0]:
+        #     k = -2
+        #     e = 1
+        #     r = r1
+        # else:
+        #     k = 1
+        #     e = -2
+        #     r = r2
 
         if (new_x, new_y) in self.block:
             return self._get_state(), r, False, self.ACTIONS
@@ -404,7 +430,7 @@ def saveResult(score, numberOfEpisodes, delta, objective, moves, board):
     df.to_csv(file_name + 'board' + '.csv', encoding='utf-8', index=False)
 
 
-trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999997))
+trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.9999997))
 #0.999995
 
 scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
