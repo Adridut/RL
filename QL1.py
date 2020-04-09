@@ -4,13 +4,13 @@
 import random
 from math import sqrt
 
-length = 8
-width = 8
+length = 4
+width = 4
 maxSteps = length * width
 exitNumber = 1
 holeNumber = 0
 wallNumber = 0
-objective = 20
+objective = 8
 
 from datetime import date, datetime
 
@@ -90,12 +90,15 @@ class Game:
         # cases.remove(block)
 
         key = (0,0)
+        keyOpt = False
+        distanceSE = abs((abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])))
         for e in cases:
             distance1 = abs((abs(e[0] - end[0][0]) + abs(e[1] - end[0][1])) + (abs(start[0] - e[0]) + abs(start[1] - e[1])) - objective)
             distance2 = abs((abs(key[0] - end[0][0]) + abs(key[1] - end[0][1])) + (abs(start[0] - key[0]) + abs(start[1] - key[1])) - objective)
             if distance1 < distance2:
                 key = e
-
+                if distance1 <= 2 or objective <= distanceSE:
+                    keyOpt = True
 
         self.hasKey = False
         self.key = key
@@ -231,7 +234,7 @@ Q = np.zeros([states_n, actions_n])
 # Set learning parameters
 lr = .85
 y = .99
-num_episodes = 200
+num_episodes = 25
 cumul_reward_list = []
 delta = []
 actions_list = []
@@ -309,7 +312,7 @@ plt.show()
 d = False
 g = game
 s = g.reset()
-g.print()
+print(g.print())
 print("reward : ", 0)
 print("score : ", 0)
 score = 0
