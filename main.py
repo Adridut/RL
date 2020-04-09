@@ -16,7 +16,7 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 8
-numberOfEpisodes = 50000
+numberOfEpisodes = 100000
 
 from datetime import date, datetime
 
@@ -97,6 +97,19 @@ class Game:
         self.hole = hole
         self.block = block
         self.delta = (0,0)
+        self.goal = random.randint(1, maxSteps)
+        i = 0
+        a = 0
+        b = 0
+        while i < self.goal:
+            i += 1
+            a += 1
+            if a == length:
+                a = 0
+                b += 1
+
+        self.goalT = (a,b)
+
 
         self.counter = 0
         self.deltaI = 0
@@ -128,7 +141,7 @@ class Game:
         x, y = self.position
         if self.alea:
             return np.reshape([self._get_grille(x, y) for [(x, y)] in
-                               [[self.position], self.end, [self.delta]]], (1, width * length * 3))
+                               [[self.position], self.end, [self.delta], [self.goalT]]], (1, width * length * 4))
         return flatten(self._get_grille(x, y))
 
     def get_random_action(self):
@@ -161,31 +174,31 @@ class Game:
 
         self.deltaI += 1
 
-        if self.deltaI > (length-1):
+        if self.deltaI >= length:
             self.deltaI = 0
             self.deltaJ += 1
 
-        if self.counter <= objective:
+        if self.counter <= self.goal:
             r = 1
         else:
             r = -1
 
         if (new_x, new_y) in self.block:
-            return self._get_state(), r, False, self.ACTIONS
+            return self._get_state(), r, False, self.goal, self.ACTIONS
         elif (new_x, new_y) in self.hole:
             self.position = new_x, new_y
-            return self._get_state(), -30, True, None
+            return self._get_state(), -30, True, self.goal, None
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), r , True, self.ACTIONS
+            return self._get_state(), r , True, self.goal, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
-            return self._get_state(), -1 , False, self.ACTIONS
+            return self._get_state(), -1 , False, self.goal, self.ACTIONS
         elif self.counter > maxSteps:
             self.position = new_x, new_y
-            return self._get_state(), r , True, self.ACTIONS
+            return self._get_state(), r , True, self.goal, self.ACTIONS
         else:
             self.position = new_x, new_y
-            return self._get_state(), r , False, self.ACTIONS
+            return self._get_state(), r , False, self.goal, self.ACTIONS
 
     def print(self):
         str = ""
@@ -221,7 +234,7 @@ from collections import deque
 
 class Trainer:
     def __init__(self, name=None, learning_rate=0.001, epsilon_decay=0.9999, batch_size=30, memory_size=3000):
-        self.state_size = width * length * 3
+        self.state_size = width * length * 4
         self.action_size = 4
         self.gamma = 0.9
         self.epsilon = 1.0
@@ -260,8 +273,8 @@ class Trainer:
         action = np.argmax(act_values[0])
         return action
 
-    def remember(self, state, action, reward, next_state, done, delta):
-        self.memory.append([state, action, reward, next_state, done, delta])
+    def remember(self, state, action, reward, next_state, done):
+        self.memory.append([state, action, reward, next_state, done])
 
     def replay(self, batch_size):
         batch_size = min(batch_size, len(self.memory))
@@ -271,7 +284,7 @@ class Trainer:
         inputs = np.zeros((batch_size, self.state_size))
         outputs = np.zeros((batch_size, self.action_size))
 
-        for i, (state, action, reward, next_state, done, delta) in enumerate(minibatch):
+        for i, (state, action, reward, next_state, done) in enumerate(minibatch):
             target = self.model.predict(state)[0]
             if done:
                 target[action] = reward
@@ -321,14 +334,14 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
                 steps += 1
                 action = g.get_random_action()
                 next_state, reward, done, _ = g.move(action)
-                trainer.remember(state, action, reward, next_state, done, abs(steps - objective))
+                trainer.remember(state, action, reward, next_state, done)
                 state = next_state
 
     print("Starting training")
     global_counter = 0
     for e in range(episodes+1):
         state = g.generate_game()
-        state = np.reshape(state, [1, width * length * 3])
+        state = np.reshape(state, [1, width * length * 4])
         score = 0
         done = False
         steps = 0
@@ -337,10 +350,10 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             global_counter += 1
             action = trainer.get_best_action(state)
             trainer.decay_epsilon()
-            next_state, reward, done, _ = g.move(action)
-            next_state = np.reshape(next_state, [1, width * length * 3])
+            next_state, reward, done, goal, _ = g.move(action)
+            next_state = np.reshape(next_state, [1, width * length * 4])
             score += reward
-            trainer.remember(state, action, reward, next_state, done, abs(steps - objective))
+            trainer.remember(state, action, reward, next_state, done)
             state = next_state
             if global_counter % 100 == 0:
                 l = trainer.replay(batch_size)
@@ -348,27 +361,26 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             if done:
                 epsilons.append(trainer.epsilon)
                 scores.append(score)
-                delta.append(abs(steps - objective))
+                delta.append(abs(steps - goal))
                 break
             if steps > maxSteps:
                 epsilons.append(trainer.epsilon)
                 scores.append(score)
-                delta.append(abs(steps - objective))
+                delta.append(abs(steps - goal))
                 break
         if e % 200 == 0:
-            print("episode: {}/{}, moves: {}, score: {}, epsilon: {}, loss: {}, delta: {}"
-                  .format(e, episodes, steps, score, trainer.epsilon, losses[-1], abs(steps - objective)))
+            print("episode: {}/{}, moves: {}, score: {}, delta: {}, goal: {}, epsilon: {}, loss: {}"
+                  .format(e, episodes, steps, score, abs(steps - goal), goal, trainer.epsilon, losses[-1]))
         # if e > 0 and e % snapshot == 0:
         #     trainer.save(id='iteration-%s' % e)
     return scores, losses, epsilons, delta
 
 import pandas as pd
 
-def saveResult(score, numberOfEpisodes, delta, objective, moves, board):
+def saveResult(score, numberOfEpisodes, moves, board, goal, delta):
     description = input('Description: ')
-    result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
-              'delta': [delta], 'objective': [objective], 'moves': [moves],
-              'day': [day], 'time': [time], 'description': [description]}
+    result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes], 'moves': [moves], 'goal': [goal],
+              'delta': [delta], 'day': [day], 'time': [time], 'description': [description]}
     df = pd.DataFrame(data=result)
     print(df)
     df.to_csv(file_name + '.csv', encoding='utf-8', index=False)
@@ -435,14 +447,14 @@ while not done and moves < maxSteps:
     print(trainer.model.predict(np.array(g._get_state())))
     action = trainer.get_best_action(g._get_state(), rand=False)
     print(Game.ACTION_NAMES[action])
-    next_state, reward, done, _ = g.move(action)
+    next_state, reward, done, goal, _ = g.move(action)
     print(g.print())
     board.append(g.print())
     s += reward
-    delta = abs(objective - moves)
+    delta = abs(goal - moves)
     print('Reward', reward)
     print('Score', s)
     print('Moves', moves)
     print("Delta : ", delta)
 
-saveResult(s, numberOfEpisodes, delta, objective, moves, board)
+saveResult(s, numberOfEpisodes, moves, board, goal, delta)
