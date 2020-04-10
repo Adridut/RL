@@ -16,7 +16,7 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 8
-numberOfEpisodes = 80000
+numberOfEpisodes = 150000
 
 from datetime import date, datetime
 
@@ -164,9 +164,9 @@ class Game:
         # random actions sometimes (2 times over 10 default)
         choice = random.random()
         if choice < self.wrong_action_p:
-            action = (action + 1) % 4
+            action = (action + 1) % 5
         elif choice < 2 * self.wrong_action_p:
-            action = (action - 1) % 4
+            action = (action - 1) % 5
 
         d_x, d_y = self.MOVEMENTS[action]
         x, y = self.position
@@ -194,7 +194,7 @@ class Game:
             self.position = new_x, new_y
             return self._get_state(), r , True, self.goal, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
-            return self._get_state(), -1 , False, self.goal, self.ACTIONS
+            return self._get_state(), r , False, self.goal, self.ACTIONS
         elif self.counter > maxSteps:
             self.position = new_x, new_y
             return self._get_state(), r , True, self.goal, self.ACTIONS
@@ -237,7 +237,7 @@ from collections import deque
 class Trainer:
     def __init__(self, name=None, learning_rate=0.001, epsilon_decay=0.9999, batch_size=30, memory_size=3000):
         self.state_size = width * length * 4
-        self.action_size = 4
+        self.action_size = 5
         self.gamma = 0.9
         self.epsilon = 1.0
         self.epsilon_min = 0.01
