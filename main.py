@@ -16,7 +16,7 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 8
-numberOfEpisodes = 100000
+numberOfEpisodes = 80000
 
 from datetime import date, datetime
 
@@ -31,16 +31,18 @@ class Game:
     ACTION_LEFT = 1
     ACTION_DOWN = 2
     ACTION_RIGHT = 3
+    ACTION_STAY = 4
 
-    ACTIONS = [ACTION_DOWN, ACTION_LEFT, ACTION_RIGHT, ACTION_UP]
+    ACTIONS = [ACTION_DOWN, ACTION_LEFT, ACTION_RIGHT, ACTION_UP, ACTION_STAY]
 
-    ACTION_NAMES = ["UP", "LEFT ", "DOWN ", "RIGHT"]
+    ACTION_NAMES = ["UP", "LEFT ", "DOWN ", "RIGHT", "STAY"]
 
     MOVEMENTS = {
         ACTION_UP: (1, 0),
         ACTION_RIGHT: (0, 1),
         ACTION_LEFT: (0, -1),
-        ACTION_DOWN: (-1, 0)
+        ACTION_DOWN: (-1, 0),
+        ACTION_STAY: (0, 0)
     }
 
     num_actions = len(ACTIONS)
@@ -456,5 +458,6 @@ while not done and moves < maxSteps:
     print('Score', s)
     print('Moves', moves)
     print("Delta : ", delta)
+    print("Goal: ", goal)
 
 saveResult(s, numberOfEpisodes, moves, board, goal, delta)
