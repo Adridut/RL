@@ -20,9 +20,7 @@ numberOfEpisodes = 150000
 
 from datetime import date, datetime
 
-day = date.today().strftime("%d%m%Y")
-time = datetime.now().strftime("%H%M%S")
-file_name = 'DNN' + day + time
+
 
 
 
@@ -236,8 +234,8 @@ from collections import deque
 
 class Trainer:
     def __init__(self, name=None, learning_rate=0.001, epsilon_decay=0.9999, batch_size=30, memory_size=3000):
-        self.state_size = width * length * 4
         self.action_size = 5
+        self.state_size = width * length * 4
         self.gamma = 0.9
         self.epsilon = 1.0
         self.epsilon_min = 0.01
@@ -252,8 +250,8 @@ class Trainer:
         else:
             model = Sequential()
             model.add(Dense(self.state_size, input_dim=self.state_size, activation='relu'))
-            model.add(Dense(30, activation='relu'))
-            model.add(Dense(30, activation='relu'))
+            model.add(Dense(self.state_size, activation='relu'))
+            model.add(Dense(self.state_size, activation='relu'))
             model.add(Dense(self.action_size, activation='linear'))
             model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
 
@@ -382,7 +380,7 @@ import pandas as pd
 def saveResult(score, numberOfEpisodes, moves, board, goal, delta):
     description = input('Description: ')
     result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes], 'moves': [moves], 'goal': [goal],
-              'delta': [delta], 'day': [day], 'time': [time], 'description': [description]}
+              'delta': [delta], 'day': [day], 'time': [hour], 'description': [description]}
     df = pd.DataFrame(data=result)
     print(df)
     df.to_csv(file_name + '.csv', encoding='utf-8', index=False)
@@ -405,7 +403,9 @@ d = smooth(delta, width=round(numberOfEpisodes/70) + 1)
 # score = np.array(scores)
 # score_c = np.convolve(score, np.full((10,), 1/10), mode="same")
 
-
+day = date.today().strftime("%d%m%Y")
+hour = datetime.now().strftime("%H%M%S")
+file_name = 'DNN' + day + hour
 
 fig, ax1 = plt.subplots()
 ax1.plot(sc, color='b')
