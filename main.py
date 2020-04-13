@@ -170,7 +170,10 @@ class Game:
         x, y = self.position
         new_x, new_y = x + d_x, y + d_y
 
-        self.delta = (self.deltaJ, self.deltaI)
+        if self.counter == self.goal:
+            self.delta = (width-1, length-1)
+        else:
+            self.delta = (self.deltaJ, self.deltaI)
 
         self.deltaI += 1
 
