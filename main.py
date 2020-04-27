@@ -7,16 +7,19 @@ import random
 #TODO Make epsilon proportional to number of episodes
 #TODO merge the 3 algo in 1
 #TODO Save results in the same csv file for each algo
+#TODO Make it possible for the user to choose the goal -
+# - and the start and end position and the end of the training
 
 flatten = lambda l: [item for sublist in l for item in sublist]
-length = 4
-width = 4
+length = 5
+width = 5
 maxSteps = (width * length) - 1
 exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 objective = 8
-numberOfEpisodes = 150000
+numberOfEpisodes = 200000
+elementInState = 4
 
 from datetime import date, datetime
 
@@ -97,7 +100,8 @@ class Game:
         self.hole = hole
         self.block = block
         self.delta = (0,0)
-        self.goal = random.randint(1, maxSteps)
+        distanceStartEnd = abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])
+        self.goal = random.randint(distanceStartEnd, maxSteps)
         i = 0
         a = 0
         b = 0
@@ -141,7 +145,7 @@ class Game:
         x, y = self.position
         if self.alea:
             return np.reshape([self._get_grille(x, y) for [(x, y)] in
-                               [[self.position], self.end, [self.delta], [self.goalT]]], (1, width * length * 4))
+                               [[self.position], self.end, [self.delta], [self.goalT]]], (1, width * length * elementInState))
         return flatten(self._get_grille(x, y))
 
     def get_random_action(self):
@@ -182,7 +186,7 @@ class Game:
             self.deltaJ += 1
 
         if self.counter <= self.goal:
-            r = 1
+            r = 10/self.goal
         else:
             r = -1
 
@@ -238,7 +242,7 @@ from collections import deque
 class Trainer:
     def __init__(self, name=None, learning_rate=0.001, epsilon_decay=0.9999, batch_size=30, memory_size=3000):
         self.action_size = 5
-        self.state_size = width * length * 4
+        self.state_size = width * length * elementInState
         self.gamma = 0.9
         self.epsilon = 1.0
         self.epsilon_min = 0.01
@@ -253,8 +257,8 @@ class Trainer:
         else:
             model = Sequential()
             model.add(Dense(self.state_size, input_dim=self.state_size, activation='relu'))
-            model.add(Dense(self.state_size, activation='relu'))
-            model.add(Dense(self.state_size, activation='relu'))
+            model.add(Dense(self.state_size * 2, activation='relu'))
+            model.add(Dense(self.state_size * 2, activation='relu'))
             model.add(Dense(self.action_size, activation='linear'))
             model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
 
@@ -344,7 +348,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
     global_counter = 0
     for e in range(episodes+1):
         state = g.generate_game()
-        state = np.reshape(state, [1, width * length * 4])
+        state = np.reshape(state, [1, width * length * elementInState])
         score = 0
         done = False
         steps = 0
@@ -354,7 +358,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             action = trainer.get_best_action(state)
             trainer.decay_epsilon()
             next_state, reward, done, goal, _ = g.move(action)
-            next_state = np.reshape(next_state, [1, width * length * 4])
+            next_state = np.reshape(next_state, [1, width * length * elementInState])
             score += reward
             trainer.remember(state, action, reward, next_state, done)
             state = next_state
@@ -392,7 +396,7 @@ def saveResult(score, numberOfEpisodes, moves, board, goal, delta):
     df.to_csv(file_name + 'board' + '.csv', encoding='utf-8', index=False)
 
 
-trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.99999))
+trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
 #0.999995
 
 scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
@@ -400,6 +404,7 @@ scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snap
 
 import matplotlib.pyplot as plt
 sc = smooth(scores, width=round(numberOfEpisodes/70) + 1)
+sc2 = smooth(scores, width=round(numberOfEpisodes/10) + 1)
 d = smooth(delta, width=round(numberOfEpisodes/70) + 1)
 
 
@@ -425,6 +430,8 @@ ax2.set_ylabel('Epsilon', color='r')
 ax2.tick_params('y', colors='r')
 plt.title("Score, Epsilon and Delta over training")
 ax1.set_xlabel("Episodes")
+ax4 = ax1.twinx()
+ax4.plot(sc2, color='y')
 plt.savefig(file_name + '.png')
 plt.figure()
 plt.show()
