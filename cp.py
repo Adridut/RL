@@ -10,6 +10,7 @@ import tf as tf
 from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
+import random
 
 
 class CartPoleEnv(gym.Env):
@@ -97,7 +98,7 @@ class CartPoleEnv(gym.Env):
         sintheta = math.sin(theta)
         temp = (force + self.polemass_length * theta_dot * theta_dot * sintheta) / self.total_mass
         thetaacc = (self.gravity * sintheta - costheta * temp) / (
-                    self.length * (4.0 / 3.0 - self.masspole * costheta * costheta / self.total_mass))
+                self.length * (4.0 / 3.0 - self.masspole * costheta * costheta / self.total_mass))
         xacc = temp - self.polemass_length * thetaacc * costheta / self.total_mass
         if self.kinematics_integrator == 'euler':
             x = x + self.tau * x_dot
@@ -193,6 +194,7 @@ class CartPoleEnv(gym.Env):
         if self.viewer:
             self.viewer.close()
             self.viewer = None
+
 
 
 import numpy as np
@@ -406,6 +408,7 @@ def reproduce(award_set, generations):
 
     return new_generation, new_award_set
 
+import pandas as pd
 
 def evolution(env, test_run, n_of_generations):
     gen_award = rand_run(env, test_run)
@@ -414,14 +417,22 @@ def evolution(env, test_run, n_of_generations):
     current_award_set = gen_award[1]
     best_gen = []
     A = []
+    iw = 0
+    ib = 0
+    hw = 0
+    ow = 0
     for n in range(n_of_generations):
         new_generation, new_award_set = reproduce(current_award_set, current_gens)
         current_gens = new_generation
         current_award_set = new_award_set
         avg = np.average(current_award_set)
-        if avg > 4500:
+        #avg > 4500
+        if avg >= 300:
             best_gen = np.array([current_gens[0][0], current_gens[1][0], current_gens[2][0], current_gens[3][0]])
-            np.save("newtest", best_gen)
+            iw = current_gens[0][0]
+            ib = current_gens[1][0]
+            hw = current_gens[2][0]
+            ow = current_gens[3][0]
         a = np.amax(current_award_set)
         print("generation: {}, score: {}".format(n + 1, a))
         A = np.append(A, a)
@@ -434,25 +445,23 @@ def evolution(env, test_run, n_of_generations):
 
     print('Average accepted score:', mean(A))
     print('Median score for accepted scores:', median(A))
-    return plt.show()
+    return plt.show(), iw, ib, hw, ow
 
 
-n_of_generations = 10
-evolution(env, test_run, n_of_generations)
+n_of_generations = 100
+_, iw, ib, hw, ow = evolution(env, test_run, n_of_generations)
 
-# param = np.load("newtest.npy")
-#
-# in_w = param[0]
-# in_b = param[1]
-# hid_w = param[2]
-# out_w = param[3]
+in_w = iw
+in_b = ib
+hid_w = hw
+out_w = ow
 
 
 
 def test_run_env(env, in_w, in_b, hid_w, out_w):
     obs = env.reset()
     award = 0
-    for t in range(5000):
+    for t in range(1000):
         env.render()  # thia slows the process
         action = nn(obs, in_w, in_b, hid_w, out_w)
         obs, reward, done, info = env.step(action)
@@ -463,4 +472,7 @@ def test_run_env(env, in_w, in_b, hid_w, out_w):
             break
     return award
 
-# print(test_run_env(env, in_w, in_b, hid_w, out_w))
+
+print(test_run_env(env, in_w, in_b, hid_w, out_w))
+env.close()
+
