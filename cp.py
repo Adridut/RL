@@ -223,7 +223,7 @@ EPISODES = 300
 class DQNAgent:
     def __init__(self, state_size, action_size):
         # if you want to see Cartpole learning, then change to True
-        self.render = True
+        self.render = False
         self.load_model = False
 
         # get size of state and action
@@ -327,15 +327,18 @@ if __name__ == "__main__":
     agent = DQNAgent(state_size, action_size)
 
     scores, episodes = [], []
+    e = 0
 
-    for e in range(EPISODES):
+    while e < EPISODES:
         done = False
         score = 0
         state = env.reset()
         state = np.reshape(state, [1, state_size])
 
         while not done:
-            if agent.render:
+
+
+            if e == EPISODES - 1:
                 env.render()
 
             # get action for the current state and go one step in environment
@@ -365,10 +368,17 @@ if __name__ == "__main__":
                 print("episode:", e, "  score:", score, "  memory length:",
                       len(agent.memory), "  epsilon:", agent.epsilon)
 
-                # if the mean of scores of last 10 episode is bigger than 490
-                # stop training
+                e += 1
+
                 if np.mean(scores[-min(10, len(scores)):]) > 490:
-                    sys.exit()
+                    print('***OUI***')
+                    e = EPISODES - 1
+                    # sys.exit()
+
+            # if the mean of scores of last 10 episode is bigger than 490
+                # stop training
+
+
 
         # save the model
         # if e % 50 == 0:
