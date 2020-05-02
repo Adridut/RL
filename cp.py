@@ -130,7 +130,7 @@ class CartPoleEnv(gym.Env):
             # Pole just fell!
             self.steps_beyond_done = 0
             # reward = 1.0
-            reward = 0.0
+            reward = -1.0
         else:
             if self.steps_beyond_done == 0:
                 logger.warn(
@@ -138,11 +138,15 @@ class CartPoleEnv(gym.Env):
             self.steps_beyond_done += 1
             reward = 0.0
 
+        if self.counter >= 500:
+            done = True
+
         return np.array(self.state), reward, done, {}
 
     def reset(self):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,)) #5
         self.steps_beyond_done = None
+        self.counter = 0
         return np.array(self.state)
 
     def render(self, mode='human'):
@@ -214,7 +218,7 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 from keras.models import Sequential
 
-EPISODES = 300
+EPISODES = 500
 
 
 # DQN Agent for the Cartpole
@@ -346,7 +350,7 @@ if __name__ == "__main__":
             next_state, reward, done, info = env.step(action)
             next_state = np.reshape(next_state, [1, state_size])
             # if an action make the episode end, then gives penalty of -100
-            reward = reward if not done or score == 499 else -100
+            # reward = reward if not done or score == 499 else -100
 
             # save the sample <s, a, r, s'> to the replay memory
             agent.append_sample(state, action, reward, next_state, done)
@@ -360,7 +364,7 @@ if __name__ == "__main__":
                 agent.update_target_model()
 
                 # every episode, plot the play time
-                score = score if score == 500 else score + 100
+                # score = score if score == 500 else score + 100
                 scores.append(score)
                 episodes.append(e)
                 pylab.plot(episodes, scores, 'b')
@@ -370,8 +374,10 @@ if __name__ == "__main__":
 
                 e += 1
 
+                if e >= EPISODES:
+                    break
+
                 if np.mean(scores[-min(10, len(scores)):]) > 490:
-                    print('***OUI***')
                     e = EPISODES - 1
                     # sys.exit()
 
