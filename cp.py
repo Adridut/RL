@@ -64,7 +64,7 @@ class CartPoleEnv(gym.Env):
         self.force_mag = 10.0
         self.tau = 0.02  # seconds between state updates
         self.kinematics_integrator = 'euler'
-        # self.goal = 0.3
+        self.goal = 0.03
         self.counter = 0
 
         # Angle at which to fail the episode
@@ -95,7 +95,7 @@ class CartPoleEnv(gym.Env):
         self.counter += 1
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
         state = self.state
-        x, x_dot, theta, theta_dot = state
+        x, x_dot, theta, theta_dot, _ = state
         force = self.force_mag if action == 1 else -self.force_mag
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
@@ -113,7 +113,7 @@ class CartPoleEnv(gym.Env):
             x = x + self.tau * x_dot
             theta_dot = theta_dot + self.tau * thetaacc
             theta = theta + self.tau * theta_dot
-        self.state = (x, x_dot, theta, theta_dot) #self.goal
+        self.state = (x, x_dot, theta, theta_dot, self.goal) #self.goal
         done = x < -self.x_threshold \
                or x > self.x_threshold \
                or theta < -self.theta_threshold_radians \
@@ -129,8 +129,7 @@ class CartPoleEnv(gym.Env):
         elif self.steps_beyond_done is None:
             # Pole just fell!
             self.steps_beyond_done = 0
-            # reward = 1.0
-            reward = -1.0
+            reward = 0.0
         else:
             if self.steps_beyond_done == 0:
                 logger.warn(
@@ -144,7 +143,7 @@ class CartPoleEnv(gym.Env):
         return np.array(self.state), reward, done, {}
 
     def reset(self):
-        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,)) #5
+        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(5,)) #4
         self.steps_beyond_done = None
         self.counter = 0
         return np.array(self.state)
@@ -325,7 +324,8 @@ if __name__ == "__main__":
     # In case of CartPole-v1, maximum length of episode is 500
     env = CartPoleEnv()
     # get size of state and action from environment
-    state_size = env.observation_space.shape[0]
+    # state_size = env.observation_space.shape[0]
+    state_size = 5
     action_size = env.action_space.n
 
     agent = DQNAgent(state_size, action_size)
