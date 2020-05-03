@@ -93,9 +93,10 @@ class CartPoleEnv(gym.Env):
 
     def step(self, action):
         self.counter += 1
+        self.delta = (abs(self.counter - (self.goal * 10000))) / 10000
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
         state = self.state
-        x, x_dot, theta, theta_dot, _ = state
+        x, x_dot, theta, theta_dot, _, _ = state
         force = self.force_mag if action == 1 else -self.force_mag
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
@@ -113,7 +114,7 @@ class CartPoleEnv(gym.Env):
             x = x + self.tau * x_dot
             theta_dot = theta_dot + self.tau * thetaacc
             theta = theta + self.tau * theta_dot
-        self.state = (x, x_dot, theta, theta_dot, self.goal) #self.goal
+        self.state = (x, x_dot, theta, theta_dot, self.goal, self.delta)
         done = x < -self.x_threshold \
                or x > self.x_threshold \
                or theta < -self.theta_threshold_radians \
@@ -121,11 +122,11 @@ class CartPoleEnv(gym.Env):
         done = bool(done)
 
         if not done:
-            reward = 1.0
-            # if self.counter < self.goal:
-            #     reward = 1.0
-            # else:
-            #     reward = -1.0
+            # reward = 1.0
+            if self.counter < self.goal * 10000:
+                reward = 1.0
+            else:
+                reward = -1.0
         elif self.steps_beyond_done is None:
             # Pole just fell!
             self.steps_beyond_done = 0
@@ -140,10 +141,10 @@ class CartPoleEnv(gym.Env):
         if self.counter >= 500:
             done = True
 
-        return np.array(self.state), reward, done, {}
+        return np.array(self.state), reward, done,  {}, self.counter, (self.goal * 10000), self.delta * 10000
 
     def reset(self):
-        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(5,)) #4
+        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(6,)) #4
         self.steps_beyond_done = None
         self.counter = 0
         return np.array(self.state)
@@ -325,12 +326,12 @@ if __name__ == "__main__":
     env = CartPoleEnv()
     # get size of state and action from environment
     # state_size = env.observation_space.shape[0]
-    state_size = 5
+    state_size = 6
     action_size = env.action_space.n
 
     agent = DQNAgent(state_size, action_size)
 
-    scores, episodes = [], []
+    scores, episodes, deltas, epsilons = [], [], [], []
     e = 0
 
     while e < EPISODES:
@@ -347,7 +348,7 @@ if __name__ == "__main__":
 
             # get action for the current state and go one step in environment
             action = agent.get_action(state)
-            next_state, reward, done, info = env.step(action)
+            next_state, reward, done, info, counter, goal, delta = env.step(action)
             next_state = np.reshape(next_state, [1, state_size])
             # if an action make the episode end, then gives penalty of -100
             # reward = reward if not done or score == 499 else -100
@@ -367,17 +368,38 @@ if __name__ == "__main__":
                 # score = score if score == 500 else score + 100
                 scores.append(score)
                 episodes.append(e)
-                pylab.plot(episodes, scores, 'b')
+                deltas.append(delta)
+                epsilons.append(agent.epsilon)
+
+                fig, ax1 = pylab.subplots()
+                ax1.plot(scores, color='b')
+                ax2 = ax1.twinx()
+                ax2.plot(epsilons, color='r')
+                ax3 = ax1.twinx()
+                ax3.plot(deltas, color='g')
+                ax3.set_ylabel('Delta', color='g')
+                ax3.tick_params('y', colors='g')
+                ax3.spines["right"].set_position(("axes", 0))
+                ax1.set_ylabel('Score', color='b')
+                ax1.tick_params('y', colors='b')
+                ax2.set_ylabel('Epsilon', color='r')
+                ax2.tick_params('y', colors='r')
+                pylab.title("Score, Epsilon and Delta over training")
+                ax1.set_xlabel("Episodes")
+
+                # pylab.plot(episodes, scores, 'b')
+                # pylab.plot(episodes, epsilons, 'r')
+                # pylab.plot(episodes, deltas, 'g')
                 pylab.savefig("cartpole_dqn.png")
                 print("episode:", e, "  score:", score, "  memory length:",
-                      len(agent.memory), "  epsilon:", agent.epsilon)
+                      len(agent.memory), "  epsilon:", agent.epsilon, "  Counter:", counter, "  Goal:", goal, "  Delta:", delta)
 
                 e += 1
 
                 if e >= EPISODES:
                     break
 
-                if np.mean(scores[-min(10, len(scores)):]) > 490:
+                if np.mean(scores[-min(10, len(scores)):]) >= goal:
                     e = EPISODES - 1
                     # sys.exit()
 
