@@ -4,13 +4,13 @@
 import random
 from math import sqrt
 
-length = 4
-width = 4
+length = 5
+width = 5
 maxSteps = length * width
 exitNumber = 1
 holeNumber = 0
 wallNumber = 0
-objective = 8
+objective = random.randint(1, length * width)
 
 from datetime import date, datetime
 
@@ -92,6 +92,12 @@ class Game:
         key = (0,0)
         keyOpt = False
         distanceSE = abs((abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])))
+        while distanceSE > objective:
+            end.append(list(random.choice(cases)))
+            end[i] = tuple(end[i])
+            cases.remove(end[i])
+            distanceSE = abs((abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])))
+
         for e in cases:
             distance1 = abs((abs(e[0] - end[0][0]) + abs(e[1] - end[0][1])) + (abs(start[0] - e[0]) + abs(start[1] - e[1])) - objective)
             distance2 = abs((abs(key[0] - end[0][0]) + abs(key[1] - end[0][1])) + (abs(start[0] - key[0]) + abs(start[1] - key[1])) - objective)
@@ -234,38 +240,57 @@ Q = np.zeros([states_n, actions_n])
 # Set learning parameters
 lr = .85
 y = .99
-num_episodes = 25
-cumul_reward_list = []
-delta = []
-actions_list = []
-states_list = []
-game = Game(length, width, 0)  # 0 chance to go left or right instead of asked direction
-for i in range(num_episodes):
-    actions = []
-    s = game.reset()
-    states = [s]
-    cumul_reward = 0
-    moves = 0
-    d = False
-    while True:
-        # on choisit une action aléatoire avec une certaine probabilité, qui décroit
-        Q2 = Q[s, :] + np.random.randn(1, actions_n) * (1. / (i + 1))
-        a = np.argmax(Q2)
-        s1, reward, d, _ = game.move(a)
-        Q[s, a] = Q[s, a] + lr * (reward + y * np.max(Q[s1, :]) - Q[s, a])  # Fonction de mise à jour de la Q-table
-        cumul_reward += reward
-        s = s1
-        actions.append(a)
-        states.append(s)
-        moves += 1
-        if d == True:
-            break
-    states_list.append(states)
-    actions_list.append(actions)
-    cumul_reward_list.append(cumul_reward)
-    delta.append(abs(moves - objective))
+num_episodes = 50
+n = 0
 
-print("Score over time: " + str(sum(cumul_reward_list[-100:]) / 100.0))
+lower_bound = []
+upper_bound = []
+while n < 15:
+    n += 1
+    cumul_reward_list = []
+    delta = []
+    actions_list = []
+    states_list = []
+    game = Game(length, width, 0)  # 0 chance to go left or right instead of asked direction
+    for i in range(num_episodes):
+        actions = []
+        s = game.reset()
+        states = [s]
+        cumul_reward = 0
+        moves = 0
+        d = False
+        while True:
+            # on choisit une action aléatoire avec une certaine probabilité, qui décroit
+            Q2 = Q[s, :] + np.random.randn(1, actions_n) * (1. / (i + 1))
+            a = np.argmax(Q2)
+            s1, reward, d, _ = game.move(a)
+            Q[s, a] = Q[s, a] + lr * (reward + y * np.max(Q[s1, :]) - Q[s, a])  # Fonction de mise à jour de la Q-table
+            cumul_reward += reward
+            s = s1
+            actions.append(a)
+            states.append(s)
+            moves += 1
+            if d == True:
+                break
+        states_list.append(states)
+        actions_list.append(actions)
+        cumul_reward_list.append(cumul_reward)
+        delta.append(abs(moves - objective))
+
+    if n == 1:
+        upper_bound = cumul_reward_list.copy()
+        lower_bound = cumul_reward_list.copy()
+    else:
+        i = 0
+        while i < len(cumul_reward_list):
+            if cumul_reward_list[i] > upper_bound[i]:
+                upper_bound[i] = cumul_reward_list[i]
+            if cumul_reward_list[i] < lower_bound[i]:
+                lower_bound[i] = cumul_reward_list[i]
+            i += 1
+
+
+# print("Score over time: " + str(sum(cumul_reward_list[-100:]) / 100.0))
 
 game.reset()
 game.print()
@@ -294,9 +319,17 @@ from time import sleep
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
 
+middle_list = []
+i = 0
+while i < len(upper_bound):
+    middle_list.append((upper_bound[i] + lower_bound[i]) / 2)
+    i += 1
 
 fig, ax1 = plt.subplots()
 ax1.plot(cumul_reward_list[:num_episodes], color='b')
+# ax1.plot(middle_list[:num_episodes], color='b')
+# ax1.plot(upper_bound[:num_episodes], color='m')
+# ax1.plot(lower_bound[:num_episodes], color='y')
 ax1.set_ylabel('Score', color='b')
 ax1.tick_params('y', colors='b')
 ax2 = ax1.twinx()
@@ -305,6 +338,7 @@ ax2.set_ylabel('Delta', color='g')
 ax2.tick_params('y', colors='g')
 plt.title("Score, and Delta over training")
 ax1.set_xlabel("Episodes")
+# ax1.fill_between(upper_bound, lower_bound)
 plt.savefig(file_name + '.png')
 plt.figure()
 plt.show()
