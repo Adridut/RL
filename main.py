@@ -3,28 +3,24 @@ import random
 # Random environment each time
 # Neural network used
 
-#TODO Make it work for any numbers of exits, walls and holes
-#TODO Make epsilon proportional to number of episodes
-#TODO merge the 3 algo in 1
-#TODO Save results in the same csv file for each algo
-#TODO Make it possible for the user to choose the goal -
+# TODO Make it work for any numbers of exits, walls and holes
+# TODO Make epsilon proportional to number of episodes
+# TODO merge the 3 algo in 1
+# TODO Save results in the same csv file for each algo
+# TODO Make it possible for the user to choose the goal -
 # - and the start and end position and the end of the training
 
 flatten = lambda l: [item for sublist in l for item in sublist]
-length = 5
-width = 5
+length = 4
+width = 4
 maxSteps = (width * length) - 1
 exitNumber = 1
 holeNumber = 0
 wallNumber = 0
-objective = 8
 numberOfEpisodes = 200000
 elementInState = 4
 
 from datetime import date, datetime
-
-
-
 
 
 class Game:
@@ -48,7 +44,7 @@ class Game:
 
     num_actions = len(ACTIONS)
 
-    #wrong = 0.1
+    # wrong = 0.1
     def __init__(self, n, m, wrong_action_p=0, alea=False):
         self.n = n
         self.m = m
@@ -99,7 +95,7 @@ class Game:
         self.end = end
         self.hole = hole
         self.block = block
-        self.delta = (0,0)
+        self.delta = (0, 0)
         distanceStartEnd = abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])
         self.goal = random.randint(distanceStartEnd, maxSteps)
         i = 0
@@ -112,8 +108,7 @@ class Game:
                 a = 0
                 b += 1
 
-        self.goalT = (a,b)
-
+        self.goalT = (a, b)
 
         self.counter = 0
         self.deltaI = 0
@@ -145,7 +140,8 @@ class Game:
         x, y = self.position
         if self.alea:
             return np.reshape([self._get_grille(x, y) for [(x, y)] in
-                               [[self.position], self.end, [self.delta], [self.goalT]]], (1, width * length * elementInState))
+                               [[self.position], self.end, [self.delta], [self.goalT]]],
+                              (1, width * length * elementInState))
         return flatten(self._get_grille(x, y))
 
     def get_random_action(self):
@@ -175,7 +171,7 @@ class Game:
         new_x, new_y = x + d_x, y + d_y
 
         if self.counter == self.goal:
-            self.delta = (width-1, length-1)
+            self.delta = (width - 1, length - 1)
         else:
             self.delta = (self.deltaJ, self.deltaI)
 
@@ -186,7 +182,7 @@ class Game:
             self.deltaJ += 1
 
         if self.counter <= self.goal:
-            r = 10/self.goal
+            r = 10 / self.goal
         else:
             r = -1
 
@@ -197,15 +193,15 @@ class Game:
             return self._get_state(), -30, True, self.goal, None
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), r , True, self.goal, self.ACTIONS
+            return self._get_state(), r, True, self.goal, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
-            return self._get_state(), r , False, self.goal, self.ACTIONS
+            return self._get_state(), r, False, self.goal, self.ACTIONS
         elif self.counter > maxSteps:
             self.position = new_x, new_y
-            return self._get_state(), r , True, self.goal, self.ACTIONS
+            return self._get_state(), r, True, self.goal, self.ACTIONS
         else:
             self.position = new_x, new_y
-            return self._get_state(), r , False, self.goal, self.ACTIONS
+            return self._get_state(), r, False, self.goal, self.ACTIONS
 
     def print(self):
         str = ""
@@ -233,8 +229,8 @@ from keras.optimizers import RMSprop, Adam, sgd
 from keras.layers.advanced_activations import LeakyReLU
 import random
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 from collections import deque
 
@@ -313,76 +309,109 @@ class Trainer:
             name += '-' + id
         self.model.save(name, overwrite=overwrite)
 
+
 def smooth(vector, width=30):
-    return np.convolve(vector, [1/width]*width, mode='valid')
+    return np.convolve(vector, [1 / width] * width, mode='valid')
+
 
 import time
 from IPython.core.debugger import set_trace
 
+
 def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=5000):
     batch_size = 32
-    g = Game(length, width, wrong_action_p, alea=alea)
-    counter = 1
-    scores = []
-    global_counter = 0
-    losses = [0]
-    epsilons = []
-    delta = []
+    lower_bound = []
+    upper_bound = []
+    delta_lower_bound = []
+    delta_upper_bound = []
+    n = 0
+    while n < 5:
+        trainer.__init__()
+        trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
+        n += 1
+        g = Game(length, width, wrong_action_p, alea=alea)
+        counter = 1
+        scores = []
+        global_counter = 0
+        losses = [0]
+        epsilons = []
+        delta = []
 
-    # we start with a sequence to collect information, without learning
-    if collecting:
-        collecting_steps = numberOfEpisodes/3
-        print("Collecting game without learning")
-        steps = 0
-        while steps < collecting_steps:
-            state = g.reset()
+        # we start with a sequence to collect information, without learning
+        if collecting:
+            collecting_steps = numberOfEpisodes / 3
+            print("Collecting game without learning")
+            steps = 0
+            while steps < collecting_steps:
+                state = g.reset()
+                done = False
+                while not done:
+                    steps += 1
+                    action = g.get_random_action()
+                    next_state, reward, done, _ = g.move(action)
+                    trainer.remember(state, action, reward, next_state, done)
+                    state = next_state
+
+        print("Starting training")
+        global_counter = 0
+        for e in range(episodes + 1):
+            state = g.generate_game()
+            state = np.reshape(state, [1, width * length * elementInState])
+            score = 0
             done = False
+            steps = 0
             while not done:
                 steps += 1
-                action = g.get_random_action()
-                next_state, reward, done, _ = g.move(action)
+                global_counter += 1
+                action = trainer.get_best_action(state)
+                trainer.decay_epsilon()
+                next_state, reward, done, goal, _ = g.move(action)
+                next_state = np.reshape(next_state, [1, width * length * elementInState])
+                score += reward
                 trainer.remember(state, action, reward, next_state, done)
                 state = next_state
+                if global_counter % 100 == 0:
+                    l = trainer.replay(batch_size)
+                    losses.append(l.history['loss'][0])
+                if done:
+                    epsilons.append(trainer.epsilon)
+                    scores.append(score)
+                    delta.append(abs(steps - goal))
+                    break
+                if steps > maxSteps:
+                    epsilons.append(trainer.epsilon)
+                    scores.append(score)
+                    delta.append(abs(steps - goal))
+                    break
+            if e % 200 == 0:
+                print("episode: {}/{}, moves: {}, score: {}, delta: {}, goal: {}, epsilon: {}, loss: {}"
+                      .format(e, episodes, steps, score, abs(steps - goal), goal, trainer.epsilon, losses[-1]))
+            # if e > 0 and e % snapshot == 0:
+            #     trainer.save(id='iteration-%s' % e)
 
-    print("Starting training")
-    global_counter = 0
-    for e in range(episodes+1):
-        state = g.generate_game()
-        state = np.reshape(state, [1, width * length * elementInState])
-        score = 0
-        done = False
-        steps = 0
-        while not done:
-            steps += 1
-            global_counter += 1
-            action = trainer.get_best_action(state)
-            trainer.decay_epsilon()
-            next_state, reward, done, goal, _ = g.move(action)
-            next_state = np.reshape(next_state, [1, width * length * elementInState])
-            score += reward
-            trainer.remember(state, action, reward, next_state, done)
-            state = next_state
-            if global_counter % 100 == 0:
-                l = trainer.replay(batch_size)
-                losses.append(l.history['loss'][0])
-            if done:
-                epsilons.append(trainer.epsilon)
-                scores.append(score)
-                delta.append(abs(steps - goal))
-                break
-            if steps > maxSteps:
-                epsilons.append(trainer.epsilon)
-                scores.append(score)
-                delta.append(abs(steps - goal))
-                break
-        if e % 200 == 0:
-            print("episode: {}/{}, moves: {}, score: {}, delta: {}, goal: {}, epsilon: {}, loss: {}"
-                  .format(e, episodes, steps, score, abs(steps - goal), goal, trainer.epsilon, losses[-1]))
-        # if e > 0 and e % snapshot == 0:
-        #     trainer.save(id='iteration-%s' % e)
-    return scores, losses, epsilons, delta
+        if n == 1:
+            upper_bound = scores.copy()
+            lower_bound = scores.copy()
+            delta_upper_bound = delta.copy()
+            delta_lower_bound = delta.copy()
+        else:
+            i = 0
+            while i < len(scores):
+                if scores[i] > upper_bound[i]:
+                    upper_bound[i] = scores[i]
+                if scores[i] < lower_bound[i]:
+                    lower_bound[i] = scores[i]
+                if delta[i] > delta_upper_bound[i]:
+                    delta_upper_bound[i] = delta[i]
+                if delta[i] < delta_lower_bound[i]:
+                    delta_lower_bound[i] = delta[i]
+                i += 1
+        if n == 5:
+            return scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound
+
 
 import pandas as pd
+
 
 def saveResult(score, numberOfEpisodes, moves, board, goal, delta):
     description = input('Description: ')
@@ -397,16 +426,29 @@ def saveResult(score, numberOfEpisodes, moves, board, goal, delta):
 
 
 trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
-#0.999995
-
-scores, losses, epsilons, delta = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
-#35000
+# 0.999995
+scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
+# 35000
 
 import matplotlib.pyplot as plt
-sc = smooth(scores, width=round(numberOfEpisodes/70) + 1)
-sc2 = smooth(scores, width=round(numberOfEpisodes/10) + 1)
-d = smooth(delta, width=round(numberOfEpisodes/70) + 1)
 
+sc = smooth(scores, width=round(numberOfEpisodes / 70) + 1)
+sc2 = smooth(scores, width=round(numberOfEpisodes / 10) + 1)
+d = smooth(delta, width=round(numberOfEpisodes / 70) + 1)
+ub = smooth(upper_bound, width=round(numberOfEpisodes / 70) + 1)
+lb = smooth(lower_bound, width=round(numberOfEpisodes / 70) + 1)
+dub = smooth(delta_upper_bound, width=round(numberOfEpisodes / 70) + 1)
+dlb = smooth(delta_lower_bound, width=round(numberOfEpisodes / 70) + 1)
+
+middle_list = []
+delta_middle_list = []
+i = 0
+while i < len(ub):
+    delta_middle_list.append((dub[i] + dlb[i]) / 2)
+    middle_list.append((ub[i] + lb[i]) / 2)
+    i += 1
+# x = range(0,numberOfEpisodes)
+x = range(0, len(ub))
 
 # score = np.array(scores)
 # score_c = np.convolve(score, np.full((10,), 1/10), mode="same")
@@ -416,11 +458,15 @@ hour = datetime.now().strftime("%H%M%S")
 file_name = 'DNN' + day + hour
 
 fig, ax1 = plt.subplots()
-ax1.plot(sc, color='b')
+# ax1.plot(sc, color='b')
+ax1.plot(middle_list, color='b')
+ax1.fill_between(x, ub, lb, alpha=0.1, color='b')
 ax2 = ax1.twinx()
 ax2.plot(epsilons, color='r')
 ax3 = ax1.twinx()
-ax3.plot(d, color='g')
+# ax3.plot(d, color='g')
+ax3.plot(delta_middle_list, color='g')
+ax3.fill_between(x, dub, dlb, alpha=0.1, color='g')
 ax3.set_ylabel('Delta', color='g')
 ax3.tick_params('y', colors='g')
 ax3.spines["right"].set_position(("axes", 0))
@@ -430,16 +476,16 @@ ax2.set_ylabel('Epsilon', color='r')
 ax2.tick_params('y', colors='r')
 plt.title("Score, Epsilon and Delta over training")
 ax1.set_xlabel("Episodes")
-ax4 = ax1.twinx()
-ax4.plot(sc2, color='y')
+# ax4 = ax1.twinx()
+# ax4.plot(sc2, color='y')
 plt.savefig(file_name + '.png')
 plt.figure()
 plt.show()
 
-
 from IPython import display
 import time
-#0.1
+
+# 0.1
 g = Game(length, width, 0, alea=True)
 
 state = g.reset()
