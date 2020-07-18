@@ -389,22 +389,25 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
             # if e > 0 and e % snapshot == 0:
             #     trainer.save(id='iteration-%s' % e)
 
+        sc = smooth(scores, width=round(numberOfEpisodes / 70) + 1)
+        d = smooth(delta, width=round(numberOfEpisodes / 70) + 1)
+
         if n == 1:
-            upper_bound = scores.copy()
-            lower_bound = scores.copy()
-            delta_upper_bound = delta.copy()
-            delta_lower_bound = delta.copy()
+            upper_bound = sc.copy()
+            lower_bound = sc.copy()
+            delta_upper_bound = d.copy()
+            delta_lower_bound = d.copy()
         else:
             i = 0
-            while i < len(scores):
-                if scores[i] > upper_bound[i]:
-                    upper_bound[i] = scores[i]
-                if scores[i] < lower_bound[i]:
-                    lower_bound[i] = scores[i]
-                if delta[i] > delta_upper_bound[i]:
-                    delta_upper_bound[i] = delta[i]
-                if delta[i] < delta_lower_bound[i]:
-                    delta_lower_bound[i] = delta[i]
+            while i < len(sc):
+                if sc[i] > upper_bound[i]:
+                    upper_bound[i] = sc[i]
+                if sc[i] < lower_bound[i]:
+                    lower_bound[i] = sc[i]
+                if d[i] > delta_upper_bound[i]:
+                    delta_upper_bound[i] = d[i]
+                if d[i] < delta_lower_bound[i]:
+                    delta_lower_bound[i] = d[i]
                 i += 1
         if n == 5:
             return scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound
@@ -433,7 +436,6 @@ scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper_bound, de
 import matplotlib.pyplot as plt
 
 sc = smooth(scores, width=round(numberOfEpisodes / 70) + 1)
-sc2 = smooth(scores, width=round(numberOfEpisodes / 10) + 1)
 d = smooth(delta, width=round(numberOfEpisodes / 70) + 1)
 ub = smooth(upper_bound, width=round(numberOfEpisodes / 70) + 1)
 lb = smooth(lower_bound, width=round(numberOfEpisodes / 70) + 1)
