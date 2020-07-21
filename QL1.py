@@ -10,7 +10,8 @@ maxSteps = length * width
 exitNumber = 1
 holeNumber = 0
 wallNumber = 0
-objective = random.randint(1, length * width)
+# objective = random.randint(1, length * width)
+objective = 8
 
 from datetime import date, datetime
 
@@ -92,11 +93,11 @@ class Game:
         key = (0,0)
         keyOpt = False
         distanceSE = abs((abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])))
-        while distanceSE > objective:
-            end.append(list(random.choice(cases)))
-            end[i] = tuple(end[i])
-            cases.remove(end[i])
-            distanceSE = abs((abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])))
+        # while distanceSE > objective:
+        #     end.append(list(random.choice(cases)))
+        #     end[i] = tuple(end[i])
+        #     cases.remove(end[i])
+        #     distanceSE = abs((abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])))
 
         for e in cases:
             distance1 = abs((abs(e[0] - end[0][0]) + abs(e[1] - end[0][1])) + (abs(start[0] - e[0]) + abs(start[1] - e[1])) - objective)
@@ -240,12 +241,14 @@ Q = np.zeros([states_n, actions_n])
 # Set learning parameters
 lr = .85
 y = .99
-num_episodes = 50
+num_episodes = 150
 n = 0
 
 lower_bound = []
 upper_bound = []
-while n < 15:
+delta_lower_bound = []
+delta_upper_bound = []
+while n < 5:
     n += 1
     cumul_reward_list = []
     delta = []
@@ -280,6 +283,8 @@ while n < 15:
     if n == 1:
         upper_bound = cumul_reward_list.copy()
         lower_bound = cumul_reward_list.copy()
+        delta_lower_bound = delta.copy()
+        delta_upper_bound = delta.copy()
     else:
         i = 0
         while i < len(cumul_reward_list):
@@ -287,6 +292,10 @@ while n < 15:
                 upper_bound[i] = cumul_reward_list[i]
             if cumul_reward_list[i] < lower_bound[i]:
                 lower_bound[i] = cumul_reward_list[i]
+            if delta[i] > delta_upper_bound[i]:
+                delta_upper_bound[i] = delta[i]
+            if delta[i] < delta_lower_bound[i]:
+                delta_lower_bound[i] = delta[i]
             i += 1
 
 
@@ -320,21 +329,23 @@ from IPython.display import clear_output
 import matplotlib.pyplot as plt
 
 middle_list = []
+delta_middle_list = []
 i = 0
 while i < len(upper_bound):
     middle_list.append((upper_bound[i] + lower_bound[i]) / 2)
+    delta_middle_list.append((delta_upper_bound[i] + delta_lower_bound[i]) / 2)
     i += 1
-x = range(0,50)
+x = range(0,num_episodes)
 fig, ax1 = plt.subplots()
 # ax1.plot(cumul_reward_list[:num_episodes], color='b')
 ax1.plot(middle_list[:num_episodes], color='b')
-# ax1.plot(upper_bound[:num_episodes], color='m')
-# ax1.plot(lower_bound[:num_episodes], color='y')
-ax1.fill_between(x, upper_bound, lower_bound, alpha=0.2, color='b')
+ax1.fill_between(x, upper_bound, lower_bound, alpha=0.1, color='b')
 ax1.set_ylabel('Score', color='b')
 ax1.tick_params('y', colors='b')
 ax2 = ax1.twinx()
-ax2.plot(delta, color='g')
+# ax2.plot(delta, color='g')
+ax2.plot(delta_middle_list[:num_episodes], color='g')
+ax2.fill_between(x, delta_upper_bound, delta_lower_bound, alpha=0.1, color='g')
 ax2.set_ylabel('Delta', color='g')
 ax2.tick_params('y', colors='g')
 plt.title("Score, and Delta over training")
