@@ -12,7 +12,6 @@ exitNumber = 1
 holeNumber = 0
 wallNumber = 0
 # objective = random.randint(1, length * width)
-objective = 8
 
 from datetime import date, datetime
 
@@ -47,9 +46,10 @@ class Game:
 
     num_actions = len(ACTIONS)
 
-    def __init__(self, n, m, wrong_action_p=0, alea=False):
+    def __init__(self, n, m, goal, wrong_action_p=0, alea=False):
         self.n = n
         self.m = m
+        self.goal = goal
         self.wrong_action_p = wrong_action_p
         self.alea = alea
         self.generate_game()
@@ -105,11 +105,11 @@ class Game:
         #     distanceSE = abs((abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])))
 
         for e in cases:
-            distance1 = abs((abs(e[0] - end[0][0]) + abs(e[1] - end[0][1])) + (abs(start[0] - e[0]) + abs(start[1] - e[1])) - objective)
-            distance2 = abs((abs(key[0] - end[0][0]) + abs(key[1] - end[0][1])) + (abs(start[0] - key[0]) + abs(start[1] - key[1])) - objective)
+            distance1 = abs((abs(e[0] - end[0][0]) + abs(e[1] - end[0][1])) + (abs(start[0] - e[0]) + abs(start[1] - e[1])) - self.goal)
+            distance2 = abs((abs(key[0] - end[0][0]) + abs(key[1] - end[0][1])) + (abs(start[0] - key[0]) + abs(start[1] - key[1])) - self.goal)
             if distance1 < distance2:
                 key = e
-                if distance1 <= 2 or objective <= distanceSE:
+                if distance1 <= 2 or self.goal <= distanceSE:
                     keyOpt = True
 
         self.hasKey = False
@@ -148,7 +148,7 @@ class Game:
                     [self.position, self.end, self.block, self.hole, self.key, self.hasKey]]
         return self._position_to_id(*self.position)
 
-    def move(self, action):
+    def move(self, action, subOpt):
         """
         takes an action parameter
         :param action : the id of an action
@@ -176,23 +176,29 @@ class Game:
         newDistancePK = abs(self.key[0] - new_x) + abs(self.key[1] - new_y)
         newDistancePE = abs(self.end[0][0] - new_x) + abs(self.end[0][1] - new_y)
 
-        if oldDistancePE <= newDistancePE:
-            r1 = -2
-        else:
-            r1 = 1
-        if oldDistancePK <= newDistancePK:
-            r2 = -2
-        else:
-            r2 = 1
 
-        if self.hasKey:
-            k = -2
-            e = 1
-            r = r1
+        if subOpt:
+            if oldDistancePE <= newDistancePE:
+                r1 = -2
+            else:
+                r1 = 1
+            if oldDistancePK <= newDistancePK:
+                r2 = -2
+            else:
+                r2 = 1
+
+            if self.hasKey:
+                k = -2
+                e = 1
+                r = r1
+            else:
+                k = 1
+                e = -2
+                r = r2
         else:
-            k = 1
-            e = -2
-            r = r2
+            r = -1
+            k = -1
+            e = 10
 
 
         if (new_x, new_y) in self.block:
@@ -239,7 +245,7 @@ class Game:
 ## q learning with table
 import numpy as np
 
-def train():
+def train(goal, subOpt):
     states_n = width * length
     actions_n = 4
     Q = np.zeros([states_n, actions_n])
@@ -260,7 +266,7 @@ def train():
         delta = []
         actions_list = []
         states_list = []
-        game = Game(length, width, 0)  # 0 chance to go left or right instead of asked direction
+        game = Game(length, width, goal, 0)  # 0 chance to go left or right instead of asked direction
         for i in range(num_episodes):
             actions = []
             s = game.reset()
@@ -272,7 +278,7 @@ def train():
                 # on choisit une action aléatoire avec une certaine probabilité, qui décroit
                 Q2 = Q[s, :] + np.random.randn(1, actions_n) * (1. / (i + 1))
                 a = np.argmax(Q2)
-                s1, reward, d, _ = game.move(a)
+                s1, reward, d, _ = game.move(a, subOpt)
                 Q[s, a] = Q[s, a] + lr * (reward + y * np.max(Q[s1, :]) - Q[s, a])  # Fonction de mise à jour de la Q-table
                 cumul_reward += reward
                 s = s1
@@ -284,7 +290,7 @@ def train():
             states_list.append(states)
             actions_list.append(actions)
             cumul_reward_list.append(cumul_reward)
-            delta.append(abs(moves - objective))
+            delta.append(abs(moves - goal))
 
         if n == 1:
             upper_bound = cumul_reward_list.copy()
@@ -321,9 +327,9 @@ def train():
         moves += 1
         g._get_state()
         a = np.argmax(Q[s, :])
-        s, r, d, _ = g.move(a)
+        s, r, d, _ = g.move(a, subOpt)
         score += r
-        delta = abs(objective - moves)
+        delta = abs(goal - moves)
         clear_output(wait=True)
         print(g.print())
         board.append(g.print())
@@ -334,7 +340,7 @@ def train():
         print(Game.ACTION_NAMES[a])
         sleep(0.5)
 
-    saveResult(s, num_episodes, delta, objective, moves, plt, board)
+    # saveResult(s, num_episodes, delta, objective, moves, plt, board)
 
 
 # print("Score over time: " + str(sum(cumul_reward_list[-100:]) / 100.0))
@@ -419,7 +425,9 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
     plt.figure()
     plt.show()
 
-train()
+train(8, True)
+train(8, False)
+# train(0)
 
 
 
