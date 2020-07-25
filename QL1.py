@@ -312,7 +312,7 @@ def train(goal, subOpt):
 
     game.reset()
     game.print()
-    graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound)
+    deltaPerf = graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound)
     d = False
     g = game
     s = g.reset()
@@ -339,6 +339,8 @@ def train(goal, subOpt):
         print("delta : ", delta)
         print(Game.ACTION_NAMES[a])
         sleep(0.5)
+
+    return deltaPerf
 
     # saveResult(s, num_episodes, delta, objective, moves, plt, board)
 
@@ -390,22 +392,22 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
         deltaPerf_upper_bound += delta_upper_bound[len(delta_upper_bound) - i]
     scorePerf = scorePerf / 10
     deltaPerf = deltaPerf / 10
-    scorePerf_lower_bound = scorePerf_lower_bound / 10
-    scorePerf_upper_bound = scorePerf_upper_bound / 10
-    deltaPerf_lower_bound = deltaPerf_lower_bound / 10
-    deltaPerf_upper_bound = deltaPerf_upper_bound / 10
-
-    fig, ax1 = plt.subplots()
-
-    ax2 = ax1.twinx()
-    ax1.bar(-1, scorePerf, color='b')
-    ax1.set_ylabel('Score', color='b')
-    ax1.tick_params('y', colors='b')
-    ax2.bar(1, deltaPerf, color='g')
-    ax2.set_ylabel('Delta', color='g')
-    ax2.tick_params('y', colors='g')
-    plt.title("Perfomance Histogram")
-    plt.show()
+    # scorePerf_lower_bound = scorePerf_lower_bound / 10
+    # scorePerf_upper_bound = scorePerf_upper_bound / 10
+    # deltaPerf_lower_bound = deltaPerf_lower_bound / 10
+    # deltaPerf_upper_bound = deltaPerf_upper_bound / 10
+    #
+    # fig, ax1 = plt.subplots()
+    #
+    # ax2 = ax1.twinx()
+    # ax1.bar(-1, scorePerf, color='b')
+    # ax1.set_ylabel('Score', color='b')
+    # ax1.tick_params('y', colors='b')
+    # ax2.bar(1, deltaPerf, color='g')
+    # ax2.set_ylabel('Delta', color='g')
+    # ax2.tick_params('y', colors='g')
+    # plt.title("Perfomance Histogram")
+    # plt.show()
 
     fig, ax1 = plt.subplots()
     # ax1.plot(cumul_reward_list[:num_episodes], color='b')
@@ -424,10 +426,27 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
     plt.savefig(file_name + '.png')
     plt.figure()
     plt.show()
+    return deltaPerf
 
-train(8, True)
-train(8, False)
-# train(0)
+def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt):
+    data1 = [subOpt_tasksubOpt, subOpt_taskOpt]
+    data2 = [opt_tasksubOpt, opt_taskOpt]
+    width = 0.3
+    plt.bar(np.arange(len(data1)), data1, width=width)
+    plt.bar(np.arange(len(data2)) + width, data2, width=width)
+    plt.title("Performance Histogram")
+    #TODO Add delta to y axis, add task below bar and add color legend
+    plt.show()
+
+
+
+
+subOpt_tasksubOpt = train(8, True)
+opt_tasksubOpt = train(8, False)
+subOpt_taskOpt = train(0, True)
+opt_taskOpt = train(0, False)
+perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt)
+
 
 
 
