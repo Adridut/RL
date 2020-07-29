@@ -434,8 +434,11 @@ def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt):
     width = 0.3
     plt.bar(np.arange(len(data1)), data1, width=width)
     plt.bar(np.arange(len(data2)) + width, data2, width=width)
+    plt.legend(labels=['Suboptimal Algorithm', 'Optimal Algorithm'])
+    plt.ylabel('Delta')
+    plt.xticks([0.15, 1.15], ('Suboptimal task', 'Optimal task'))
     plt.title("Performance Histogram")
-    #TODO Add delta to y axis, add task below bar and add color legend
+    plt.savefig(file_name + 'perf.png')
     plt.show()
 
 
