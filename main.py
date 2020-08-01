@@ -3,12 +3,7 @@ import random
 # Random environment each time
 # Neural network used
 
-# TODO Make it work for any numbers of exits, walls and holes
-# TODO Make epsilon proportional to number of episodes
-# TODO merge the 3 algo in 1
-# TODO Save results in the same csv file for each algo
-# TODO Make it possible for the user to choose the goal -
-# - and the start and end position and the end of the training
+# TODO goal should egal or greater to the distance agent/goal
 
 flatten = lambda l: [item for sublist in l for item in sublist]
 length = 4
@@ -21,6 +16,11 @@ numberOfEpisodes = 200000
 elementInState = 4
 
 from datetime import date, datetime
+import matplotlib.pyplot as plt
+
+day = date.today().strftime("%d%m%Y")
+hour = datetime.now().strftime("%H%M%S")
+file_name = 'DNN' + day + hour
 
 
 class Game:
@@ -45,9 +45,10 @@ class Game:
     num_actions = len(ACTIONS)
 
     # wrong = 0.1
-    def __init__(self, n, m, wrong_action_p=0, alea=False):
+    def __init__(self, n, m, subTask, wrong_action_p=0, alea=False):
         self.n = n
         self.m = m
+        self.subTask = subTask
         self.wrong_action_p = wrong_action_p
         self.alea = alea
         self.generate_game()
@@ -97,7 +98,10 @@ class Game:
         self.block = block
         self.delta = (0, 0)
         distanceStartEnd = abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])
-        self.goal = random.randint(distanceStartEnd, maxSteps)
+        if self.subTask:
+            self.goal = random.randint(distanceStartEnd, maxSteps)
+        else:
+            self.goal = 0
         i = 0
         a = 0
         b = 0
@@ -147,7 +151,7 @@ class Game:
     def get_random_action(self):
         return random.choice(self.ACTIONS)
 
-    def move(self, action):
+    def move(self, action, subOpt):
         """
         takes an action parameter
         :param action : the id of an action
@@ -181,10 +185,17 @@ class Game:
             self.deltaI = 0
             self.deltaJ += 1
 
-        if self.counter <= self.goal:
-            r = 10 / self.goal
+
+        if subOpt:
+            if self.counter <= self.goal:
+                r = 10 / self.goal
+                e = r
+            else:
+                r = -1
+                e = r
         else:
             r = -1
+            e = 10
 
         if (new_x, new_y) in self.block:
             return self._get_state(), r, False, self.goal, self.ACTIONS
@@ -193,7 +204,7 @@ class Game:
             return self._get_state(), -30, True, self.goal, None
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), r, True, self.goal, self.ACTIONS
+            return self._get_state(), e, True, self.goal, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
             return self._get_state(), r, False, self.goal, self.ACTIONS
         elif self.counter > maxSteps:
@@ -318,18 +329,19 @@ import time
 from IPython.core.debugger import set_trace
 
 
-def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=5000):
+def train(episodes, trainer, wrong_action_p, alea, subOpt, subTask, collecting=False, snapshot=5000):
     batch_size = 32
     lower_bound = []
     upper_bound = []
     delta_lower_bound = []
     delta_upper_bound = []
     n = 0
-    while n < 5:
+    maxN = 5
+    while n < maxN:
         trainer.__init__()
         trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
         n += 1
-        g = Game(length, width, wrong_action_p, alea=alea)
+        g = Game(length, width, subTask, wrong_action_p, alea=alea)
         counter = 1
         scores = []
         global_counter = 0
@@ -348,7 +360,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
                 while not done:
                     steps += 1
                     action = g.get_random_action()
-                    next_state, reward, done, _ = g.move(action)
+                    next_state, reward, done, _, _ = g.move(action, subOpt)
                     trainer.remember(state, action, reward, next_state, done)
                     state = next_state
 
@@ -365,7 +377,7 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
                 global_counter += 1
                 action = trainer.get_best_action(state)
                 trainer.decay_epsilon()
-                next_state, reward, done, goal, _ = g.move(action)
+                next_state, reward, done, goal, _ = g.move(action, subOpt)
                 next_state = np.reshape(next_state, [1, width * length * elementInState])
                 score += reward
                 trainer.remember(state, action, reward, next_state, done)
@@ -409,14 +421,51 @@ def train(episodes, trainer, wrong_action_p, alea, collecting=False, snapshot=50
                 if d[i] < delta_lower_bound[i]:
                     delta_lower_bound[i] = d[i]
                 i += 1
-        if n == 5:
-            return scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound
+        if n == maxN:
+            deltaPerf = graph(scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound)
+            from IPython import display
+            import time
+
+            # 0.1
+            g = Game(length, width, subTask, 0, alea=True)
+
+            # state = g.reset()
+            # state = g._get_state()
+            print("state")
+            print("  ")
+            print(g.print())
+            done = False
+            time.sleep(5)
+            moves = 0
+            s = 0
+            board = []
+            while not done and moves < maxSteps:
+                moves += 1
+                time.sleep(1)
+                display.clear_output(wait=True)
+                print(trainer.model.predict(np.array(g._get_state())))
+                action = trainer.get_best_action(g._get_state(), rand=False)
+                print(Game.ACTION_NAMES[action])
+                next_state, reward, done, goal, _ = g.move(action, subOpt)
+                print(g.print())
+                board.append(g.print())
+                s += reward
+                delta = abs(goal - moves)
+                print('Reward', reward)
+                print('Score', s)
+                print('Moves', moves)
+                print("Delta : ", delta)
+                print("Goal: ", goal)
+
+            return deltaPerf
 
 
 import pandas as pd
 
 
 def saveResult(score, numberOfEpisodes, moves, board, goal, delta):
+
+
     description = input('Description: ')
     result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes], 'moves': [moves], 'goal': [goal],
               'delta': [delta], 'day': [day], 'time': [hour], 'description': [description]}
@@ -427,95 +476,88 @@ def saveResult(score, numberOfEpisodes, moves, board, goal, delta):
     df = pd.DataFrame(data=boardResult)
     df.to_csv(file_name + 'board' + '.csv', encoding='utf-8', index=False)
 
+def graph(scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
 
+    # sc = smooth(scores, width=round(numberOfEpisodes / 70) + 1)
+    # d = smooth(delta, width=round(numberOfEpisodes / 70) + 1)
+    ub = smooth(upper_bound, width=round(numberOfEpisodes / 70) + 1)
+    lb = smooth(lower_bound, width=round(numberOfEpisodes / 70) + 1)
+    dub = smooth(delta_upper_bound, width=round(numberOfEpisodes / 70) + 1)
+    dlb = smooth(delta_lower_bound, width=round(numberOfEpisodes / 70) + 1)
+
+    sc = scores
+    d = delta
+
+    middle_list = []
+    delta_middle_list = []
+    i = 0
+    while i < len(upper_bound):
+        middle_list.append((upper_bound[i] + lower_bound[i]) / 2)
+        delta_middle_list.append((delta_upper_bound[i] + delta_lower_bound[i]) / 2)
+        i += 1
+    x = range(0,len(ub))
+
+    i = 0
+    scorePerf, deltaPerf, scorePerf_lower_bound, scorePerf_upper_bound,\
+    deltaPerf_lower_bound, deltaPerf_upper_bound = 0, 0, 0, 0, 0, 0
+    while i < 100:
+        i += 1
+        scorePerf += middle_list[len(middle_list) - i]
+        deltaPerf += delta_middle_list[len(delta_middle_list) - i]
+        scorePerf_lower_bound += lower_bound[len(lower_bound) - i]
+        scorePerf_upper_bound += upper_bound[len(upper_bound) - i]
+        deltaPerf_lower_bound += delta_lower_bound[len(delta_lower_bound) - i]
+        deltaPerf_upper_bound += delta_upper_bound[len(delta_upper_bound) - i]
+    scorePerf = scorePerf / 100
+    deltaPerf = deltaPerf / 100
+
+    fig, ax1 = plt.subplots()
+    # ax1.plot(sc, color='b')
+    ax1.plot(middle_list, color='b')
+    ax1.fill_between(x, ub, lb, alpha=0.1, color='b')
+    ax2 = ax1.twinx()
+    ax2.plot(epsilons, color='r')
+    ax3 = ax1.twinx()
+    # ax3.plot(d, color='g')
+    ax3.plot(delta_middle_list, color='g')
+    ax3.fill_between(x, dub, dlb, alpha=0.1, color='g')
+    ax3.set_ylabel('Delta', color='g')
+    ax3.tick_params('y', colors='g')
+    ax3.spines["right"].set_position(("axes", 0))
+    ax1.set_ylabel('Score', color='b')
+    ax1.tick_params('y', colors='b')
+    ax2.set_ylabel('Epsilon', color='r')
+    ax2.tick_params('y', colors='r')
+    plt.title("Score, Epsilon and Delta over training")
+    ax1.set_xlabel("Episodes")
+    # ax4 = ax1.twinx()
+    # ax4.plot(sc2, color='y')
+    plt.savefig(file_name + '.png')
+    plt.figure()
+    plt.show()
+    return deltaPerf
+
+def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt):
+    data1 = [subOpt_tasksubOpt, subOpt_taskOpt]
+    data2 = [opt_tasksubOpt, opt_taskOpt]
+    width = 0.3
+    plt.bar(np.arange(len(data1)), data1, width=width)
+    plt.bar(np.arange(len(data2)) + width, data2, width=width)
+    plt.legend(labels=['Suboptimal Algorithm', 'Optimal Algorithm'])
+    plt.ylabel('Delta')
+    plt.xticks([0.15, 1.15], ('Suboptimal task', 'Optimal task'))
+    plt.title("Performance Histogram")
+    plt.savefig(file_name + 'perf.png')
+    plt.show()
+
+# Training
 trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
 # 0.999995
-scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound = train(numberOfEpisodes, trainer, 0, True, snapshot=2500)
-# 35000
+subOpt_tasksubOpt = train(numberOfEpisodes, trainer, 0, True, True, True, collecting=False, snapshot=2500)
+opt_tasksubOpt = train(numberOfEpisodes, trainer, 0, True, False, True, collecting=False, snapshot=2500)
+subOpt_taskOpt = train(numberOfEpisodes, trainer, 0, True, True, False, collecting=False, snapshot=2500)
+opt_taskOpt = train(numberOfEpisodes, trainer, 0, True, False, False, collecting=False, snapshot=2500)
+perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt)
 
-import matplotlib.pyplot as plt
 
-sc = smooth(scores, width=round(numberOfEpisodes / 70) + 1)
-d = smooth(delta, width=round(numberOfEpisodes / 70) + 1)
-ub = smooth(upper_bound, width=round(numberOfEpisodes / 70) + 1)
-lb = smooth(lower_bound, width=round(numberOfEpisodes / 70) + 1)
-dub = smooth(delta_upper_bound, width=round(numberOfEpisodes / 70) + 1)
-dlb = smooth(delta_lower_bound, width=round(numberOfEpisodes / 70) + 1)
-
-middle_list = []
-delta_middle_list = []
-i = 0
-while i < len(ub):
-    delta_middle_list.append((dub[i] + dlb[i]) / 2)
-    middle_list.append((ub[i] + lb[i]) / 2)
-    i += 1
-# x = range(0,numberOfEpisodes)
-x = range(0, len(ub))
-
-# score = np.array(scores)
-# score_c = np.convolve(score, np.full((10,), 1/10), mode="same")
-
-day = date.today().strftime("%d%m%Y")
-hour = datetime.now().strftime("%H%M%S")
-file_name = 'DNN' + day + hour
-
-fig, ax1 = plt.subplots()
-# ax1.plot(sc, color='b')
-ax1.plot(middle_list, color='b')
-ax1.fill_between(x, ub, lb, alpha=0.1, color='b')
-ax2 = ax1.twinx()
-ax2.plot(epsilons, color='r')
-ax3 = ax1.twinx()
-# ax3.plot(d, color='g')
-ax3.plot(delta_middle_list, color='g')
-ax3.fill_between(x, dub, dlb, alpha=0.1, color='g')
-ax3.set_ylabel('Delta', color='g')
-ax3.tick_params('y', colors='g')
-ax3.spines["right"].set_position(("axes", 0))
-ax1.set_ylabel('Score', color='b')
-ax1.tick_params('y', colors='b')
-ax2.set_ylabel('Epsilon', color='r')
-ax2.tick_params('y', colors='r')
-plt.title("Score, Epsilon and Delta over training")
-ax1.set_xlabel("Episodes")
-# ax4 = ax1.twinx()
-# ax4.plot(sc2, color='y')
-plt.savefig(file_name + '.png')
-plt.figure()
-plt.show()
-
-from IPython import display
-import time
-
-# 0.1
-g = Game(length, width, 0, alea=True)
-
-state = g.reset()
-state = g._get_state()
-print("state")
-print("  ")
-print(g.print())
-done = False
-time.sleep(5)
-moves = 0
-s = 0
-board = []
-while not done and moves < maxSteps:
-    moves += 1
-    time.sleep(1)
-    display.clear_output(wait=True)
-    print(trainer.model.predict(np.array(g._get_state())))
-    action = trainer.get_best_action(g._get_state(), rand=False)
-    print(Game.ACTION_NAMES[action])
-    next_state, reward, done, goal, _ = g.move(action)
-    print(g.print())
-    board.append(g.print())
-    s += reward
-    delta = abs(goal - moves)
-    print('Reward', reward)
-    print('Score', s)
-    print('Moves', moves)
-    print("Delta : ", delta)
-    print("Goal: ", goal)
-
-saveResult(s, numberOfEpisodes, moves, board, goal, delta)
+# saveResult(s, numberOfEpisodes, moves, board, goal, delta)
