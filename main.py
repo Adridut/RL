@@ -329,7 +329,7 @@ import time
 from IPython.core.debugger import set_trace
 
 
-def train(episodes, trainer, wrong_action_p, alea, subOpt, subTask, collecting=False, snapshot=5000):
+def train(episodes, trainer, wrong_action_p, alea, subOpt, subTask, reset, collecting=False, snapshot=5000):
     batch_size = 32
     lower_bound = []
     upper_bound = []
@@ -338,8 +338,10 @@ def train(episodes, trainer, wrong_action_p, alea, subOpt, subTask, collecting=F
     n = 0
     maxN = 5
     while n < maxN:
-        trainer.__init__()
-        trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
+        if reset:
+            trainer.__init__()
+            trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
+
         n += 1
         g = Game(length, width, subTask, wrong_action_p, alea=alea)
         counter = 1
@@ -422,7 +424,7 @@ def train(episodes, trainer, wrong_action_p, alea, subOpt, subTask, collecting=F
                     delta_lower_bound[i] = d[i]
                 i += 1
         if n == maxN:
-            deltaPerf = graph(scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound)
+            deltaPerf, err = graph(scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound)
             from IPython import display
             import time
 
@@ -439,25 +441,25 @@ def train(episodes, trainer, wrong_action_p, alea, subOpt, subTask, collecting=F
             moves = 0
             s = 0
             board = []
-            while not done and moves < maxSteps:
-                moves += 1
-                time.sleep(1)
-                display.clear_output(wait=True)
-                print(trainer.model.predict(np.array(g._get_state())))
-                action = trainer.get_best_action(g._get_state(), rand=False)
-                print(Game.ACTION_NAMES[action])
-                next_state, reward, done, goal, _ = g.move(action, subOpt)
-                print(g.print())
-                board.append(g.print())
-                s += reward
-                delta = abs(goal - moves)
-                print('Reward', reward)
-                print('Score', s)
-                print('Moves', moves)
-                print("Delta : ", delta)
-                print("Goal: ", goal)
+            # while not done and moves < maxSteps:
+            #     moves += 1
+            #     time.sleep(1)
+            #     display.clear_output(wait=True)
+            #     print(trainer.model.predict(np.array(g._get_state())))
+            #     action = trainer.get_best_action(g._get_state(), rand=False)
+            #     print(Game.ACTION_NAMES[action])
+            #     next_state, reward, done, goal, _ = g.move(action, subOpt)
+            #     print(g.print())
+            #     board.append(g.print())
+            #     s += reward
+            #     delta = abs(goal - moves)
+            #     print('Reward', reward)
+            #     print('Score', s)
+            #     print('Moves', moves)
+            #     print("Delta : ", delta)
+            #     print("Goal: ", goal)
 
-            return deltaPerf
+            return deltaPerf, err
 
 
 import pandas as pd
@@ -512,52 +514,50 @@ def graph(scores, losses, epsilons, delta, upper_bound, lower_bound, delta_upper
     deltaPerf = deltaPerf / 100
 
     fig, ax1 = plt.subplots()
-    # ax1.plot(sc, color='b')
     ax1.plot(middle_list, color='b')
     ax1.fill_between(x, ub, lb, alpha=0.1, color='b')
-    ax2 = ax1.twinx()
-    ax2.plot(epsilons, color='r')
-    ax3 = ax1.twinx()
-    # ax3.plot(d, color='g')
-    ax3.plot(delta_middle_list, color='g')
-    ax3.fill_between(x, dub, dlb, alpha=0.1, color='g')
-    ax3.set_ylabel('Delta', color='g')
-    ax3.tick_params('y', colors='g')
-    ax3.spines["right"].set_position(("axes", 0))
-    ax1.set_ylabel('Score', color='b')
-    ax1.tick_params('y', colors='b')
-    ax2.set_ylabel('Epsilon', color='r')
-    ax2.tick_params('y', colors='r')
+    # ax2 = ax1.twinx()
+    # ax2.plot(epsilons, color='r')
+    # ax3 = ax1.twinx()
+    ax1.plot(delta_middle_list, color='g')
+    ax1.fill_between(x, dub, dlb, alpha=0.1, color='g')
+    # ax3.set_ylabel('Delta', color='g')
+    # ax3.tick_params('y', colors='g')
+    # ax3.spines["right"].set_position(("axes", 0))
+    # ax1.set_ylabel('Score', color='b')
+    # ax1.tick_params('y', colors='b')
+    # ax2.set_ylabel('Epsilon', color='r')
+    # ax2.tick_params('y', colors='r')
     plt.title("Score, Epsilon and Delta over training")
     ax1.set_xlabel("Episodes")
-    # ax4 = ax1.twinx()
-    # ax4.plot(sc2, color='y')
+    plt.legend(labels=['Score', 'Delta'])
     plt.savefig(file_name + '.png')
     plt.figure()
     plt.show()
-    return deltaPerf
+    return deltaPerf, ((deltaPerf_upper_bound/100) - deltaPerf)
 
-def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt):
+def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO):
     data1 = [subOpt_tasksubOpt, subOpt_taskOpt]
     data2 = [opt_tasksubOpt, opt_taskOpt]
     width = 0.3
-    plt.bar(np.arange(len(data1)), data1, width=width)
-    plt.bar(np.arange(len(data2)) + width, data2, width=width)
-    plt.legend(labels=['Suboptimal Algorithm', 'Optimal Algorithm'])
+    plt.bar(np.arange(len(data1)), data1, width=width, yerr=[errSS, errSO])
+    plt.bar(np.arange(len(data2)) + width, data2, width=width, yerr=[errOS, errOO])
+    plt.legend(labels=['BetaGrid', 'Traditional Agent'])
     plt.ylabel('Delta')
-    plt.xticks([0.15, 1.15], ('Suboptimal task', 'Optimal task'))
-    plt.title("Performance Histogram")
+    plt.xticks([0.15, 1.15], ('Arbitrary task', 'Optimal task'))
+    plt.title("Performance Comparison")
     plt.savefig(file_name + 'perf.png')
     plt.show()
 
 # Training
 trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
 # 0.999995
-subOpt_tasksubOpt = train(numberOfEpisodes, trainer, 0, True, True, True, collecting=False, snapshot=2500)
-opt_tasksubOpt = train(numberOfEpisodes, trainer, 0, True, False, True, collecting=False, snapshot=2500)
-subOpt_taskOpt = train(numberOfEpisodes, trainer, 0, True, True, False, collecting=False, snapshot=2500)
-opt_taskOpt = train(numberOfEpisodes, trainer, 0, True, False, False, collecting=False, snapshot=2500)
-perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt)
+subOpt_tasksubOpt, errSS = train(numberOfEpisodes, trainer, 0, True, True, True, False, collecting=False, snapshot=2500)
+subOpt_taskOpt, errSO = train(numberOfEpisodes, trainer, 0, True, True, False, True, collecting=False, snapshot=2500)
+opt_taskOpt, errOO = train(numberOfEpisodes, trainer, 0, True, False, False, True, collecting=False, snapshot=2500)
+opt_tasksubOpt, errOS = train(numberOfEpisodes, trainer, 0, True, False, True, True, collecting=False, snapshot=2500)
+
+perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO)
 
 
 # saveResult(s, numberOfEpisodes, moves, board, goal, delta)

@@ -4,7 +4,7 @@
 import random
 from math import sqrt
 
-num_episodes = 50
+num_episodes = 1000 #50
 length = 4
 width = 4
 maxSteps = length * width
@@ -73,12 +73,16 @@ class Game:
             i += 1
         # hole = random.choice(cases)
         # cases.remove(hole)
-        start = random.choice(cases)
+        # start = random.choice(cases)
+        start = (0, 0)
         cases.remove(start)
         end = []
         i = 0
+
         while i < exitNumber:
-            end.append(list(random.choice(cases)))
+            # end.append(list(random.choice(cases)))
+            # end[i] = tuple(end[i])
+            end.append((3, 0))
             end[i] = tuple(end[i])
             cases.remove(end[i])
             i += 1
@@ -186,6 +190,9 @@ class Game:
                 r2 = -2
             else:
                 r2 = 1
+
+            if newDistancePK > self.goal:
+                self.hasKey = True
 
             if self.hasKey:
                 k = -2
@@ -312,7 +319,7 @@ def train(goal, subOpt):
 
     game.reset()
     game.print()
-    deltaPerf = graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound)
+    deltaPerf, err = graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound)
     d = False
     g = game
     s = g.reset()
@@ -340,7 +347,7 @@ def train(goal, subOpt):
         print(Game.ACTION_NAMES[a])
         sleep(0.5)
 
-    return deltaPerf
+    return deltaPerf, err
 
     # saveResult(s, num_episodes, delta, objective, moves, plt, board)
 
@@ -426,29 +433,29 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
     plt.savefig(file_name + '.png')
     plt.figure()
     plt.show()
-    return deltaPerf
+    return deltaPerf, ((deltaPerf_upper_bound/10) - deltaPerf)
 
-def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt):
+def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO):
     data1 = [subOpt_tasksubOpt, subOpt_taskOpt]
     data2 = [opt_tasksubOpt, opt_taskOpt]
     width = 0.3
-    plt.bar(np.arange(len(data1)), data1, width=width)
-    plt.bar(np.arange(len(data2)) + width, data2, width=width)
-    plt.legend(labels=['Suboptimal Algorithm', 'Optimal Algorithm'])
+    plt.bar(np.arange(len(data1)), data1, width=width, yerr=[errSS, errSO])
+    plt.bar(np.arange(len(data2)) + width, data2, width=width, yerr=[errOS, errOO])
+    plt.legend(labels=['AlphaGrid', 'Traditional agent'])
     plt.ylabel('Delta')
-    plt.xticks([0.15, 1.15], ('Suboptimal task', 'Optimal task'))
-    plt.title("Performance Histogram")
+    plt.xticks([0.15, 1.15], ('Arbitrary task', 'Optimal task'))
+    plt.title("Performance Comparison")
     plt.savefig(file_name + 'perf.png')
     plt.show()
 
 
 
 
-subOpt_tasksubOpt = train(8, True)
-opt_tasksubOpt = train(8, False)
-subOpt_taskOpt = train(0, True)
-opt_taskOpt = train(0, False)
-perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt)
+subOpt_tasksubOpt, errSS = train(9, True)
+opt_tasksubOpt, errOS = train(9, False)
+subOpt_taskOpt, errSO = train(0, True)
+opt_taskOpt, errOO = train(0, False)
+perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO)
 
 
 
