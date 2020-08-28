@@ -4,7 +4,7 @@
 import random
 from math import sqrt
 
-num_episodes = 1000 #50
+num_episodes = 50 #50
 length = 4
 width = 4
 maxSteps = length * width
@@ -420,16 +420,17 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
     # ax1.plot(cumul_reward_list[:num_episodes], color='b')
     ax1.plot(middle_list[:num_episodes], color='b')
     ax1.fill_between(x, upper_bound, lower_bound, alpha=0.1, color='b')
-    ax1.set_ylabel('Score', color='b')
-    ax1.tick_params('y', colors='b')
-    ax2 = ax1.twinx()
+    # ax1.set_ylabel('Score', color='b')
+    # ax1.tick_params('y', colors='b')
+    # ax2 = ax1.twinx()
     # ax2.plot(delta, color='g')
-    ax2.plot(delta_middle_list[:num_episodes], color='g')
-    ax2.fill_between(x, delta_upper_bound, delta_lower_bound, alpha=0.1, color='g')
-    ax2.set_ylabel('Delta', color='g')
-    ax2.tick_params('y', colors='g')
+    ax1.plot(delta_middle_list[:num_episodes], color='g')
+    ax1.fill_between(x, delta_upper_bound, delta_lower_bound, alpha=0.1, color='g')
+    # ax2.set_ylabel('Delta', color='g')
+    # ax2.tick_params('y', colors='g')
     plt.title("Score, and Delta over training")
     ax1.set_xlabel("Episodes")
+    plt.legend(labels=['Score', 'Delta'])
     plt.savefig(file_name + '.png')
     plt.figure()
     plt.show()
