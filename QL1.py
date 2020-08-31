@@ -4,7 +4,7 @@
 import random
 from math import sqrt
 
-num_episodes = 50 #50
+num_episodes = 100 #50
 length = 4
 width = 4
 maxSteps = length * width
@@ -46,13 +46,15 @@ class Game:
 
     num_actions = len(ACTIONS)
 
-    def __init__(self, n, m, goal, wrong_action_p=0, alea=False):
+    def __init__(self, n, m, subTask, wrong_action_p=0, alea=False):
         self.n = n
         self.m = m
-        self.goal = goal
+        self.goal = 0
+        self.subTask = subTask
         self.wrong_action_p = wrong_action_p
         self.alea = alea
         self.generate_game()
+
 
     def _position_to_id(self, x, y):
         """Donne l'identifiant de la position entre 0 et 15"""
@@ -73,16 +75,16 @@ class Game:
             i += 1
         # hole = random.choice(cases)
         # cases.remove(hole)
-        # start = random.choice(cases)
-        start = (0, 0)
+        start = random.choice(cases)
+        # start = (0, 0)
         cases.remove(start)
         end = []
         i = 0
 
         while i < exitNumber:
-            # end.append(list(random.choice(cases)))
-            # end[i] = tuple(end[i])
-            end.append((3, 0))
+            end.append(list(random.choice(cases)))
+            end[i] = tuple(end[i])
+            # end.append((3, 0))
             end[i] = tuple(end[i])
             cases.remove(end[i])
             i += 1
@@ -102,6 +104,12 @@ class Game:
         key = (0,0)
         keyOpt = False
         distanceSE = abs((abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])))
+
+        if self.subTask:
+            self.goal = random.randint(distanceSE, maxSteps/2)
+        else:
+            self.goal = distanceSE
+
         # while distanceSE > objective:
         #     end.append(list(random.choice(cases)))
         #     end[i] = tuple(end[i])
@@ -149,7 +157,7 @@ class Game:
     def _get_state(self):
         if self.alea:
             return [self._get_grille(x, y) for (x, y) in
-                    [self.position, self.end, self.block, self.hole, self.key, self.hasKey]]
+                    [self.position, self.end, self.key, self.hasKey]]
         return self._position_to_id(*self.position)
 
     def move(self, action, subOpt):
@@ -191,8 +199,8 @@ class Game:
             else:
                 r2 = 1
 
-            if newDistancePK > self.goal:
-                self.hasKey = True
+            # if newDistancePK > self.goal:
+            #     self.hasKey = True
 
             if self.hasKey:
                 k = -2
@@ -209,25 +217,25 @@ class Game:
 
 
         if (new_x, new_y) in self.block:
-            return self._get_state(), r, False, self.ACTIONS
+            return self._get_state(), r, False, self.goal, self.ACTIONS
         elif (new_x, new_y) in self.hole:
             self.position = new_x, new_y
             return self._get_state(), -50, True, None
         elif (new_x, new_y) == self.key:
             self.position = new_x, new_y
             self.hasKey = True
-            return self._get_state(), k, False, self.ACTIONS
+            return self._get_state(), k, False, self.goal, self.ACTIONS
         elif (new_x, new_y) in self.end:
             self.position = new_x, new_y
-            return self._get_state(), e, True, self.ACTIONS
+            return self._get_state(), e, True, self.goal, self.ACTIONS
         elif new_x >= self.n or new_y >= self.m or new_x < 0 or new_y < 0:
-            return self._get_state(), r, False, self.ACTIONS
+            return self._get_state(), r, False, self.goal, self.ACTIONS
         elif self.counter > maxSteps:
             self.position = new_x, new_y
-            return self._get_state(), r, True, self.ACTIONS
+            return self._get_state(), r, True, self.goal, self.ACTIONS
         else:
             self.position = new_x, new_y
-            return self._get_state(), r, False, self.ACTIONS
+            return self._get_state(), r, False, self.goal, self.ACTIONS
 
     def print(self):
         str = ""
@@ -252,10 +260,11 @@ class Game:
 ## q learning with table
 import numpy as np
 
-def train(goal, subOpt):
+def train(subOpt, subTask):
     states_n = width * length
     actions_n = 4
     Q = np.zeros([states_n, actions_n])
+
 
     # Set learning parameters
     lr = .85
@@ -273,7 +282,7 @@ def train(goal, subOpt):
         delta = []
         actions_list = []
         states_list = []
-        game = Game(length, width, goal, 0)  # 0 chance to go left or right instead of asked direction
+        game = Game(length, width, subTask, 0)  # 0 chance to go left or right instead of asked direction
         for i in range(num_episodes):
             actions = []
             s = game.reset()
@@ -285,7 +294,7 @@ def train(goal, subOpt):
                 # on choisit une action aléatoire avec une certaine probabilité, qui décroit
                 Q2 = Q[s, :] + np.random.randn(1, actions_n) * (1. / (i + 1))
                 a = np.argmax(Q2)
-                s1, reward, d, _ = game.move(a, subOpt)
+                s1, reward, d, goal, _ = game.move(a, subOpt)
                 Q[s, a] = Q[s, a] + lr * (reward + y * np.max(Q[s1, :]) - Q[s, a])  # Fonction de mise à jour de la Q-table
                 cumul_reward += reward
                 s = s1
@@ -334,7 +343,7 @@ def train(goal, subOpt):
         moves += 1
         g._get_state()
         a = np.argmax(Q[s, :])
-        s, r, d, _ = g.move(a, subOpt)
+        s, r, d, goal, _ = g.move(a, subOpt)
         score += r
         delta = abs(goal - moves)
         clear_output(wait=True)
@@ -437,8 +446,8 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
     return deltaPerf, ((deltaPerf_upper_bound/10) - deltaPerf)
 
 def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO):
-    data1 = [subOpt_tasksubOpt, subOpt_taskOpt]
-    data2 = [opt_tasksubOpt, opt_taskOpt]
+    data1 = [subOpt_tasksubOpt + 0.1, subOpt_taskOpt + 0.1]
+    data2 = [opt_tasksubOpt + 0.1, opt_taskOpt + 0.1]
     width = 0.3
     plt.bar(np.arange(len(data1)), data1, width=width, yerr=[errSS, errSO])
     plt.bar(np.arange(len(data2)) + width, data2, width=width, yerr=[errOS, errOO])
@@ -452,10 +461,10 @@ def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, er
 
 
 
-subOpt_tasksubOpt, errSS = train(9, True)
-opt_tasksubOpt, errOS = train(9, False)
-subOpt_taskOpt, errSO = train(0, True)
-opt_taskOpt, errOO = train(0, False)
+subOpt_tasksubOpt, errSS = train(True, True)
+opt_tasksubOpt, errOS = train(False, True)
+subOpt_taskOpt, errSO = train(True, False)
+opt_taskOpt, errOO = train(False, False)
 perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO)
 
 
