@@ -19,10 +19,6 @@ from time import sleep
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
 
-day = date.today().strftime("%d%m%Y")
-time = datetime.now().strftime("%H%M%S")
-file_name = 'QT' + day + time
-
 
 
 
@@ -106,7 +102,7 @@ class Game:
         distanceSE = abs((abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])))
 
         if self.subTask:
-            self.goal = random.randint(distanceSE, maxSteps/2)
+            self.goal = random.randint(distanceSE, 14)
         else:
             self.goal = distanceSE
 
@@ -270,7 +266,7 @@ def train(subOpt, subTask):
     lr = .85
     y = .99
     n = 0
-    maxN = 5
+    maxN = 2
 
     lower_bound = []
     upper_bound = []
@@ -368,22 +364,21 @@ def train(subOpt, subTask):
 import pandas as pd
 
 
-def saveResult(score, numberOfEpisodes, delta, objective, moves, plt, board):
+# def saveResult(score, numberOfEpisodes, delta, objective, moves, plt, board):
+#
+#     description = input('Description: ')
+#
+#     result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
+#               'delta': [delta], 'objective': [objective], 'moves': [moves],
+#               'day': [day], 'time': [time], 'description': [description]}
+#     df = pd.DataFrame(data=result)
+#     print(df)
+#     df.to_csv(file_name + '.csv', encoding='utf-8', index=False)
+#     boardResult = {'board': board}
+#     df = pd.DataFrame(data=boardResult)
+#     df.to_csv(file_name + 'board' +  '.csv', encoding='utf-8', index=False)
 
-    description = input('Description: ')
 
-    result = {'score': [score], 'numberOfEpisodes': [numberOfEpisodes],
-              'delta': [delta], 'objective': [objective], 'moves': [moves],
-              'day': [day], 'time': [time], 'description': [description]}
-    df = pd.DataFrame(data=result)
-    print(df)
-    df.to_csv(file_name + '.csv', encoding='utf-8', index=False)
-    boardResult = {'board': board}
-    df = pd.DataFrame(data=boardResult)
-    df.to_csv(file_name + 'board' +  '.csv', encoding='utf-8', index=False)
-
-
-# t = Trainer(filepath="model-1496937952")
 
 def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
     middle_list = []
@@ -425,6 +420,10 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
     # plt.title("Perfomance Histogram")
     # plt.show()
 
+    day = date.today().strftime("%d%m%Y")
+    time = datetime.now().strftime("%H%M%S")
+    file_name = 'QT' + day + time
+
     fig, ax1 = plt.subplots()
     # ax1.plot(cumul_reward_list[:num_episodes], color='b')
     ax1.plot(middle_list[:num_episodes], color='b')
@@ -446,12 +445,16 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
     return deltaPerf, ((deltaPerf_upper_bound/10) - deltaPerf)
 
 def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO):
+    day = date.today().strftime("%d%m%Y")
+    time = datetime.now().strftime("%H%M%S")
+    file_name = 'QT' + day + time
+
     data1 = [subOpt_tasksubOpt + 0.1, subOpt_taskOpt + 0.1]
     data2 = [opt_tasksubOpt + 0.1, opt_taskOpt + 0.1]
     width = 0.3
     plt.bar(np.arange(len(data1)), data1, width=width, yerr=[errSS, errSO])
     plt.bar(np.arange(len(data2)) + width, data2, width=width, yerr=[errOS, errOO])
-    plt.legend(labels=['AlphaGrid', 'Traditional agent'])
+    plt.legend(labels=['AlphaGrid', 'Traditional Agent'])
     plt.ylabel('Delta')
     plt.xticks([0.15, 1.15], ('Arbitrary task', 'Optimal task'))
     plt.title("Performance Comparison")

@@ -4,10 +4,6 @@ Copied from http://incompleteideas.net/sutton/book/code/pole.c
 permalink: https://perma.cc/C9ZM-652R
 """
 
-#TODO try with max = 25 and 200
-#TODO try with layers size of 96x2 (192)
-#TODO try to add counter in state
-#TODO try to delete max and min range in state
 
 import math
 import gym
@@ -16,6 +12,7 @@ from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 
 
 class CartPoleEnv(gym.Env):
@@ -59,7 +56,8 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second': 50
     }
 
-    def __init__(self):
+    def __init__(self, subOpt):
+        self.subTask = subOpt
         self.gravity = 9.8
         self.masscart = 1.0
         self.masspole = 0.1
@@ -69,8 +67,12 @@ class CartPoleEnv(gym.Env):
         self.force_mag = 10.0
         self.tau = 0.02  # seconds between state updates
         self.kinematics_integrator = 'euler'
-        # self.goal = 0.003
-        self.goal = (random.randint(10, 200))/10000
+
+        if self.subTask:
+            self.goal = (random.randint(10, 200))/10000
+        else:
+            self.goal = 200/10000
+
         self.counter = 0
 
         # Angle at which to fail the episode
@@ -97,7 +99,7 @@ class CartPoleEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, action):
+    def step(self, action, subOpt):
         self.counter += 1
         self.delta = (abs(self.counter - (self.goal * 10000))) / 10000
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
@@ -127,17 +129,9 @@ class CartPoleEnv(gym.Env):
                or theta > self.theta_threshold_radians
         done = bool(done)
 
-
-
-        # if not done:
-
         if self.steps_beyond_done is None:
             # Pole just fell!
             self.steps_beyond_done = 0
-            # if self.counter < self.goal * 10000:
-            #     reward = -1.0
-            # else:
-            #     reward = 1.0
             reward = 0.0
         else:
             if self.steps_beyond_done == 0:
@@ -149,18 +143,24 @@ class CartPoleEnv(gym.Env):
         if self.counter >= 200:
             done = True
 
-        if self.counter <= self.goal * 10000:
-            reward = 1
+        if subOpt:
+            if self.counter <= self.goal * 10000:
+                reward = 1.0
+            else:
+                reward = -1.0
         else:
-            reward = -1.0
+            reward = 1.0
 
         return np.array(self.state), reward, done,  {}, self.counter, (self.goal * 10000), self.delta * 10000
 
-    def reset(self):
+    def reset(self, e, episodes):
         self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(7,)) #4
         self.steps_beyond_done = None
         self.counter = 0
-        self.goal = (random.randint(10, 200))/10000
+        if (self.subTask and e < (episodes - 100)) or (not self.subTask and e > (episodes - 100)):
+            self.goal = (random.randint(10, 200))/10000
+        else:
+            self.goal = 200/10000
         return np.array(self.state)
 
     def render(self, mode='human'):
@@ -232,7 +232,8 @@ from keras.layers import Dense
 from keras.optimizers import Adam
 from keras.models import Sequential
 
-EPISODES = 7000
+# EPISODES = 7000
+
 
 
 
@@ -274,6 +275,8 @@ class DQNAgent:
     # state is input and Q Value of each action is output of network
     def build_model(self):
         model = Sequential()
+
+        #96
 
         model.add(Dense(96, input_dim=self.state_size, activation='relu',
                         kernel_initializer='he_uniform'))
@@ -340,144 +343,217 @@ class DQNAgent:
 
 
 if __name__ == "__main__":
-    # In case of CartPole-v1, maximum length of episode is 500
-    env = CartPoleEnv()
-    # get size of state and action from environment
-    # state_size = env.observation_space.shape[0]
-    state_size = 7
-    action_size = env.action_space.n
+
+    from datetime import date, datetime
+
+
 
 
 
     def smooth(vector, width=30):
         return np.convolve(vector, [1 / width] * width, mode='valid')
 
-    n = 0
-    lower_bound = []
-    upper_bound = []
-    delta_lower_bound = []
-    delta_upper_bound = []
-    while n < 5:
-        agent = DQNAgent(state_size, action_size)
-        n += 1
-        scores, episodes, deltas, epsilons = [], [], [], []
-        e = 0
+    def graph(scores, deltas, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound, epsilons, EPISODES):
+        sc = smooth(scores, width=round(EPISODES / 70) + 1)
+        d = smooth(deltas, width=round(EPISODES / 70) + 1)
+        ub = smooth(upper_bound, width=round(EPISODES / 70) + 1)
+        lb = smooth(lower_bound, width=round(EPISODES / 70) + 1)
+        dub = smooth(delta_upper_bound, width=round(EPISODES / 70) + 1)
+        dlb = smooth(delta_lower_bound, width=round(EPISODES / 70) + 1)
 
-        while e < EPISODES:
-            done = False
-            score = 0
-            state = env.reset()
-            state = np.reshape(state, [1, state_size])
+        middle_list = []
+        delta_middle_list = []
+        i = 0
+        while i < len(ub):
+            delta_middle_list.append((dub[i] + dlb[i]) / 2)
+            middle_list.append((ub[i] + lb[i]) / 2)
+            i += 1
+        # x = range(0,numberOfEpisodes)
+        x = range(0, len(ub))
+        scope = 25
 
-            while not done:
+        #First task
+        i = 0
+        scorePerf, deltaPerfF, scorePerf_lower_bound, scorePerf_upper_bound, \
+        deltaPerf_lower_bound, deltaPerf_upper_boundF = 0, 0, 0, 0, 0, 0
+        while i < scope:
+            i += 1
+            s = 100 + i
+            scorePerf += middle_list[len(middle_list) - s]
+            deltaPerfF += delta_middle_list[len(delta_middle_list) - s]
+            scorePerf_lower_bound += lower_bound[len(lower_bound) - s]
+            scorePerf_upper_bound += upper_bound[len(upper_bound) - s]
+            deltaPerf_lower_bound += delta_lower_bound[len(delta_lower_bound) - s]
+            deltaPerf_upper_boundF += delta_upper_bound[len(delta_upper_bound) - s]
+        scorePerf = scorePerf / scope
+        deltaPerfF = deltaPerfF / scope
+
+        #Second task
+        i = 0
+        scorePerf, deltaPerfS, scorePerf_lower_bound, scorePerf_upper_bound, \
+        deltaPerf_lower_bound, deltaPerf_upper_boundS = 0, 0, 0, 0, 0, 0
+        while i < scope:
+            i += 1
+            scorePerf += middle_list[len(middle_list) - i]
+            deltaPerfS += delta_middle_list[len(delta_middle_list) - i]
+            scorePerf_lower_bound += lower_bound[len(lower_bound) - i]
+            scorePerf_upper_bound += upper_bound[len(upper_bound) - i]
+            deltaPerf_lower_bound += delta_lower_bound[len(delta_lower_bound) - i]
+            deltaPerf_upper_boundS += delta_upper_bound[len(delta_upper_bound) - i]
+        scorePerf = scorePerf / scope
+        deltaPerfS = deltaPerfS / scope
+
+        fig, ax1 = plt.subplots()
+        # ax1.plot(sc, color='b')
+        ax1.plot(middle_list, color='b')
+        ax1.fill_between(x, ub, lb, alpha=0.1, color='b')
+        # ax2 = ax1.twinx()
+        # ax2.plot(epsilons, color='r')
+        # ax3 = ax1.twinx()
+        # ax3.plot(d, color='g')
+        ax1.plot(delta_middle_list, color='g')
+        ax1.fill_between(x, dub, dlb, alpha=0.1, color='g')
+        # ax3.set_ylabel('Delta', color='g')
+        # ax3.tick_params('y', colors='g')
+        # ax3.spines["right"].set_position(("axes", 0))
+        # ax1.set_ylabel('Score', color='b')
+        # ax1.tick_params('y', colors='b')
+        # ax2.set_ylabel('Epsilon', color='r')
+        # ax2.tick_params('y', colors='r')
+        plt.title("Score and Delta over training")
+        ax1.set_xlabel("Episodes")
+        plt.legend(labels=['Score', 'Delta'])
+        # fileName = input('Name: ')
+        day = date.today().strftime("%d%m%Y")
+        hour = datetime.now().strftime("%H%M%S")
+        file_name = 'CP' + day + hour
+        plt.savefig(file_name + ".png")
+        plt.figure()
+        plt.show()
+
+        return deltaPerfF, ((deltaPerf_upper_boundF/100) - deltaPerfF), deltaPerfS, ((deltaPerf_upper_boundS/100) - deltaPerfS)
 
 
-                # if e == EPISODES - 1:
-                #     env.render()
+    def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO):
 
-                # get action for the current state and go one step in environment
-                action = agent.get_action(state)
-                next_state, reward, done, info, counter, goal, delta = env.step(action)
-                next_state = np.reshape(next_state, [1, state_size])
-                # if an action make the episode end, then gives penalty of -100
-                # reward = reward if not done or score == 499 else -100
+        data1 = [subOpt_tasksubOpt, subOpt_taskOpt]
+        data2 = [opt_tasksubOpt, opt_taskOpt]
+        width = 0.3
+        plt.bar(np.arange(len(data1)), data1, width=width, yerr=[errSS, errSO])
+        plt.bar(np.arange(len(data2)) + width, data2, width=width, yerr=[errOS, errOO])
+        plt.legend(labels=['AlphaPole', 'Traditional Agent'])
+        plt.ylabel('Delta')
+        plt.xticks([0.15, 1.15], ('Arbitrary task', 'Optimal task'))
+        plt.title("Performance Comparison")
+        day = date.today().strftime("%d%m%Y")
+        hour = datetime.now().strftime("%H%M%S")
+        file_name = 'CP' + day + hour + 'perf.png'
+        plt.savefig(file_name)
+        plt.show()
 
-                # save the sample <s, a, r, s'> to the replay memory
-                agent.append_sample(state, action, reward, next_state, done)
-                # every time step do the training
-                agent.train_model()
-                score += reward
-                state = next_state
+    def train(EPISODES, subOpt):
+        # In case of CartPole-v1, maximum length of episode is 500
+        env = CartPoleEnv(subOpt)
+        # get size of state and action from environment
+        # state_size = env.observation_space.shape[0]
+        state_size = 7
+        action_size = env.action_space.n
+        n = 0
+        maxN = 1
+        lower_bound = []
+        upper_bound = []
+        delta_lower_bound = []
+        delta_upper_bound = []
+        while n < maxN:
+            agent = DQNAgent(state_size, action_size)
+            n += 1
+            scores, episodes, deltas, epsilons = [], [], [], []
+            e = 0
+
+            while e < EPISODES:
+                done = False
+                score = 0
+                state = env.reset(e, EPISODES)
+                state = np.reshape(state, [1, state_size])
+
+                while not done:
 
 
-                if done:
-                    # every episode update the target model to be same with model
-                    agent.update_target_model()
+                    # if e == EPISODES - 1:
+                    #     env.render()
 
-                    # every episode, plot the play time
-                    # score = score if score == 500 else score + 100
+                    # get action for the current state and go one step in environment
+                    action = agent.get_action(state)
+                    next_state, reward, done, info, counter, goal, delta = env.step(action, subOpt)
+                    next_state = np.reshape(next_state, [1, state_size])
+                    # if an action make the episode end, then gives penalty of -100
+                    # reward = reward if not done or score == 499 else -100
 
-                    scores.append(score)
-                    episodes.append(e)
-                    deltas.append(delta)
-                    epsilons.append(agent.epsilon)
-                    # pylab.savefig("cartpole_dqn.png")
-                    if e % 100 == 0:
-                        print("episode:", e, "  score:", score, "  memory length:",
-                               len(agent.memory), "  epsilon:", agent.epsilon, "  Counter:", counter, "  Goal:", goal, "  Delta:", delta)
-
-                    e += 1
+                    # save the sample <s, a, r, s'> to the replay memory
+                    agent.append_sample(state, action, reward, next_state, done)
+                    # every time step do the training
+                    agent.train_model()
+                    score += reward
+                    state = next_state
 
 
-                    if e >= EPISODES:
+                    if done:
+                        # every episode update the target model to be same with model
+                        agent.update_target_model()
 
-                        if n == 1:
-                            upper_bound = scores.copy()
-                            lower_bound = scores.copy()
-                            delta_upper_bound = deltas.copy()
-                            delta_lower_bound = deltas.copy()
-                        else:
-                            i = 0
-                            while i < len(scores):
-                                if scores[i] > upper_bound[i]:
-                                    upper_bound[i] = scores[i]
-                                if scores[i] < lower_bound[i]:
-                                    lower_bound[i] = scores[i]
-                                if deltas[i] > delta_upper_bound[i]:
-                                    delta_upper_bound[i] = deltas[i]
-                                if deltas[i] < delta_lower_bound[i]:
-                                    delta_lower_bound[i] = deltas[i]
-                                i += 1
+                        # every episode, plot the play time
+                        # score = score if score == 500 else score + 100
 
-                        if n == 5:
+                        scores.append(score)
+                        episodes.append(e)
+                        deltas.append(delta)
+                        epsilons.append(agent.epsilon)
+                        # pylab.savefig("cartpole_dqn.png")
+                        if e % 10 == 0:
+                            print("episode:", e, "  score:", score, "  memory length:",
+                                   len(agent.memory), "  epsilon:", agent.epsilon, "  Counter:", counter, "  Goal:", goal, "  Delta:", delta)
+
+                        e += 1
+
+
+                        if e >= EPISODES:
+
                             sc = smooth(scores, width=round(EPISODES / 70) + 1)
                             d = smooth(deltas, width=round(EPISODES / 70) + 1)
-                            ub = smooth(upper_bound, width=round(EPISODES / 70) + 1)
-                            lb = smooth(lower_bound, width=round(EPISODES / 70) + 1)
-                            dub = smooth(delta_upper_bound, width=round(EPISODES / 70) + 1)
-                            dlb = smooth(delta_lower_bound, width=round(EPISODES / 70) + 1)
 
-                            middle_list = []
-                            delta_middle_list = []
-                            i = 0
-                            while i < len(ub):
-                                delta_middle_list.append((dub[i] + dlb[i]) / 2)
-                                middle_list.append((ub[i] + lb[i]) / 2)
-                                i += 1
-                            # x = range(0,numberOfEpisodes)
-                            x = range(0, len(ub))
+                            if n == 1:
+                                upper_bound = sc.copy()
+                                lower_bound = sc.copy()
+                                delta_upper_bound = d.copy()
+                                delta_lower_bound = d.copy()
+                            else:
+                                i = 0
+                                while i < len(sc):
+                                    if sc[i] > upper_bound[i]:
+                                        upper_bound[i] = sc[i]
+                                    if sc[i] < lower_bound[i]:
+                                        lower_bound[i] = sc[i]
+                                    if d[i] > delta_upper_bound[i]:
+                                        delta_upper_bound[i] = d[i]
+                                    if d[i] < delta_lower_bound[i]:
+                                        delta_lower_bound[i] = d[i]
+                                    i += 1
 
-                            fig, ax1 = pylab.subplots()
-                            # ax1.plot(sc, color='b')
-                            ax1.plot(middle_list, color='b')
-                            ax1.fill_between(x, ub, lb, alpha=0.1, color='b')
-                            ax2 = ax1.twinx()
-                            ax2.plot(epsilons, color='r')
-                            ax3 = ax1.twinx()
-                            # ax3.plot(d, color='g')
-                            ax3.plot(delta_middle_list, color='g')
-                            ax3.fill_between(x, dub, dlb, alpha=0.1, color='g')
-                            ax3.set_ylabel('Delta', color='g')
-                            ax3.tick_params('y', colors='g')
-                            ax3.spines["right"].set_position(("axes", 0))
-                            ax1.set_ylabel('Score', color='b')
-                            ax1.tick_params('y', colors='b')
-                            ax2.set_ylabel('Epsilon', color='r')
-                            ax2.tick_params('y', colors='r')
-                            pylab.title("Score, Epsilon and Delta over training")
-                            ax1.set_xlabel("Episodes")
-                            fileName = input('Name: ')
-                            pylab.savefig(fileName + ".png")
-                            break
+                            if n == maxN:
+                                deltaPerfF, errF, deltaperfS, errS = graph(scores, deltas, upper_bound, lower_bound, delta_upper_bound, delta_lower_bound, epsilons, EPISODES)
+                                return deltaPerfF, errF, deltaperfS, errS
 
-                # if np.mean(scores[-min(10, len(scores)):]) >= w:
-                #     e = EPISODES - 1
-                    # sys.exit()
+                    # if np.mean(scores[-min(10, len(scores)):]) >= w:
+                    #     e = EPISODES - 1
+                        # sys.exit()
 
-            # if the mean of scores of last 10 episode is bigger than 4
-                # stop training
+                # if the mean of scores of last 10 episode is bigger than 4
+                    # stop training
 
 
+    subOpt_tasksubOpt, errSS, subOpt_taskOpt, errSO = train(7000, True)
+    opt_taskOpt, errOO, opt_tasksubOpt, errOS,  = train(2000, False)
+    perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO)
 
         # save the model
         # if e % 50 == 0:
