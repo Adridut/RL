@@ -100,6 +100,8 @@ class Game:
         else:
             self.goal = self.distanceStartEnd
 
+        self.goal = self.distanceStartEnd
+
         i = 0
         a = 0
         b = 0
@@ -587,10 +589,10 @@ def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, er
 # Training
 trainer = Trainer(learning_rate=0.001, epsilon_decay=(0.999995))
 
-subOpt_tasksubOpt, errSS, subOpt_taskOpt, errSO = train(150000, trainer, 0, True, True, collecting=False, snapshot=2500)
+# subOpt_tasksubOpt, errSS, subOpt_taskOpt, errSO = train(150000, trainer, 0, True, True, collecting=False, snapshot=2500)
 opt_taskOpt, errOO, opt_tasksubOpt, errOS = train(50000, trainer, 0, True, False, collecting=False, snapshot=2500)
-
-perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO)
+#
+# perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO)
 
 
 # saveResult(s, numberOfEpisodes, moves, board, goal, delta)

@@ -2,16 +2,14 @@
 # Q-Learning with table
 
 import random
-from math import sqrt
 
-num_episodes = 100 #50
+num_episodes = 100
 length = 4
 width = 4
 maxSteps = length * width
 exitNumber = 1
 holeNumber = 0
 wallNumber = 0
-# objective = random.randint(1, length * width)
 
 from datetime import date, datetime
 
@@ -69,10 +67,7 @@ class Game:
             hole[i] = tuple(hole[i])
             cases.remove(hole[i])
             i += 1
-        # hole = random.choice(cases)
-        # cases.remove(hole)
         start = random.choice(cases)
-        # start = (0, 0)
         cases.remove(start)
         end = []
         i = 0
@@ -80,13 +75,11 @@ class Game:
         while i < exitNumber:
             end.append(list(random.choice(cases)))
             end[i] = tuple(end[i])
-            # end.append((3, 0))
             end[i] = tuple(end[i])
             cases.remove(end[i])
             i += 1
 
-        # end = random.choice(cases)
-        # cases.remove(end)
+
         block = []
         i = 0
         while i < wallNumber:
@@ -94,8 +87,7 @@ class Game:
             block[i] = tuple(block[i])
             cases.remove(block[i])
             i += 1
-        # block = random.choice(cases)
-        # cases.remove(block)
+
 
         key = (0,0)
         keyOpt = False
@@ -105,12 +97,6 @@ class Game:
             self.goal = random.randint(distanceSE, 14)
         else:
             self.goal = distanceSE
-
-        # while distanceSE > objective:
-        #     end.append(list(random.choice(cases)))
-        #     end[i] = tuple(end[i])
-        #     cases.remove(end[i])
-        #     distanceSE = abs((abs(start[0] - end[0][0]) + abs(start[1] - end[0][1])))
 
         for e in cases:
             distance1 = abs((abs(e[0] - end[0][0]) + abs(e[1] - end[0][1])) + (abs(start[0] - e[0]) + abs(start[1] - e[1])) - self.goal)
@@ -195,9 +181,6 @@ class Game:
             else:
                 r2 = 1
 
-            # if newDistancePK > self.goal:
-            #     self.hasKey = True
-
             if self.hasKey:
                 k = -2
                 e = 1
@@ -265,8 +248,9 @@ def train(subOpt, subTask):
     # Set learning parameters
     lr = .85
     y = .99
+
     n = 0
-    maxN = 2
+    maxN = 5
 
     lower_bound = []
     upper_bound = []
@@ -278,7 +262,7 @@ def train(subOpt, subTask):
         delta = []
         actions_list = []
         states_list = []
-        game = Game(length, width, subTask, 0)  # 0 chance to go left or right instead of asked direction
+        game = Game(length, width, subTask, 0)  
         for i in range(num_episodes):
             actions = []
             s = game.reset()
@@ -390,10 +374,12 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
         i += 1
     x = range(0,num_episodes)
 
+    scope = 25
+
     i = 0
     scorePerf, deltaPerf, scorePerf_lower_bound, scorePerf_upper_bound,\
     deltaPerf_lower_bound, deltaPerf_upper_bound = 0, 0, 0, 0, 0, 0
-    while i < 10:
+    while i < scope:
         i += 1
         scorePerf += middle_list[len(middle_list) - i]
         deltaPerf += delta_middle_list[len(delta_middle_list) - i]
@@ -401,8 +387,8 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
         scorePerf_upper_bound += upper_bound[len(upper_bound) - i]
         deltaPerf_lower_bound += delta_lower_bound[len(delta_lower_bound) - i]
         deltaPerf_upper_bound += delta_upper_bound[len(delta_upper_bound) - i]
-    scorePerf = scorePerf / 10
-    deltaPerf = deltaPerf / 10
+    scorePerf = scorePerf / scope
+    deltaPerf = deltaPerf / scope
     # scorePerf_lower_bound = scorePerf_lower_bound / 10
     # scorePerf_upper_bound = scorePerf_upper_bound / 10
     # deltaPerf_lower_bound = deltaPerf_lower_bound / 10
@@ -442,7 +428,7 @@ def graph(upper_bound, lower_bound, delta_upper_bound, delta_lower_bound):
     plt.savefig(file_name + '.png')
     plt.figure()
     plt.show()
-    return deltaPerf, ((deltaPerf_upper_bound/10) - deltaPerf)
+    return deltaPerf, ((deltaPerf_upper_bound/scope) - deltaPerf)
 
 def perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO):
     day = date.today().strftime("%d%m%Y")

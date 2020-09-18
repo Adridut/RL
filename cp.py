@@ -73,6 +73,8 @@ class CartPoleEnv(gym.Env):
         else:
             self.goal = 200/10000
 
+        self.goal = 200 / 10000
+
         self.counter = 0
 
         # Angle at which to fail the episode
@@ -161,6 +163,9 @@ class CartPoleEnv(gym.Env):
             self.goal = (random.randint(10, 200))/10000
         else:
             self.goal = 200/10000
+
+        self.goal = 200 / 10000
+
         return np.array(self.state)
 
     def render(self, mode='human'):
@@ -275,8 +280,6 @@ class DQNAgent:
     # state is input and Q Value of each action is output of network
     def build_model(self):
         model = Sequential()
-
-        #96
 
         model.add(Dense(96, input_dim=self.state_size, activation='relu',
                         kernel_initializer='he_uniform'))
@@ -459,7 +462,7 @@ if __name__ == "__main__":
         state_size = 7
         action_size = env.action_space.n
         n = 0
-        maxN = 1
+        maxN = 5
         lower_bound = []
         upper_bound = []
         delta_lower_bound = []
@@ -551,9 +554,9 @@ if __name__ == "__main__":
                     # stop training
 
 
-    subOpt_tasksubOpt, errSS, subOpt_taskOpt, errSO = train(7000, True)
-    opt_taskOpt, errOO, opt_tasksubOpt, errOS,  = train(2000, False)
-    perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO)
+    # subOpt_tasksubOpt, errSS, subOpt_taskOpt, errSO = train(7000, True)
+    opt_taskOpt, errOO, opt_tasksubOpt, errOS,  = train(1000, False)
+    # perfGraph(subOpt_tasksubOpt, opt_tasksubOpt, subOpt_taskOpt, opt_taskOpt, errSS, errOS, errSO, errOO)
 
         # save the model
         # if e % 50 == 0:
